@@ -20,7 +20,7 @@ type Config struct {
 	} `json:"hw"`
 }
 
-func LoadConfig(fileName string) (*Config, error) {
+func New(fileName string) (*Config, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %w", err)
