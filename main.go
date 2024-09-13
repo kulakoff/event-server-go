@@ -15,10 +15,6 @@ func main() {
 		log.Fatalf("Error load config file: %v", err)
 	}
 
-	//fmt.Printf("Bwward event server used port: %d\n", cfg.Hw.Beward.Port)
-	//fmt.Printf("Bwward DS event server used port: %d\n", cfg.Hw.BewardDs.Port)
-	//fmt.Printf("Qtech event server used port: %d\n", cfg.Hw.Qtech.Port)
-
 	go startServer(cfg.Hw.Beward.Port, "Beward")
 	go startServer(cfg.Hw.BewardDs.Port, "BewardDS")
 	go startServer(cfg.Hw.Qtech.Port, "Qtech")
@@ -51,7 +47,7 @@ func startServer(port int, panelType string) {
 		}
 
 		message := string(buffer[:n])
-		log.Printf("Received message: %s", message)
+		log.Printf("HW: %s | %s", panelType, message)
 
 		/**
 		TODO:
