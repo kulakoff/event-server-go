@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/kulakoff/event-server-go/internal/config"
+	"github.com/kulakoff/event-server-go/internal/services"
 	"log"
 	"log/slog"
 	"net"
@@ -53,5 +54,9 @@ func startServer(port int, panelType string) {
 		TODO:
 			- implements service handlers by device type
 		*/
+		service := services.GetIntercomService(panelType)
+		if err := service.ProcessSyslogMessage(message); err != nil {
+			log.Printf("Error processing syslog message from hw %s: %v", panelType, err)
+		}
 	}
 }
