@@ -17,7 +17,7 @@ func main() {
 	}
 
 	go startServer(cfg.Hw.Beward.Port, "Beward")
-	go startServer(cfg.Hw.BewardDs.Port, "BewardDS")
+	go startServer(cfg.Hw.BewardDS.Port, "BewardDS")
 	go startServer(cfg.Hw.Qtech.Port, "Qtech")
 
 	select {}
