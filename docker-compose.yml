@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  redis:
+    container_name: "rbt_db_redis_${RBT_INSTANCE}"
+    image: redis:7-alpine
+    command: ["sh", "-c", "exec redis-server --requirepass \"${RBT_REDIS_PASSWORD}\""]
+    ports:
+      - "${RBT_REDIS_PORT}"
+    networks:
+      default:
+        ipv4_address: "${RBT_REDIS_NETWORK_ADDRESS}"
+
+  mongo:
+    container_name: "rbt_db_mongo_${RBT_INSTANCE}"
+    image: mongo:latest
+    ports:
+      - "${RBT_MONGO_PORT}"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${RBT_MONGO_USERNAME}"
+      MONGO_INITDB_ROOT_PASSWORD: "${RBT_MONGO_PASSWORD}"
+    volumes:
+      - db_mongodb:/data/db
+    networks:
+      default:
+        ipv4_address: "${RBT_MONGO_NETWORK_ADDRESS}"
+
+  postgres:
+    container_name: "rbt_db_postgres_${RBT_INSTANCE}"
+    image: postgres:16
+    environment:
+      POSTGRES_DB: "${RBT_POSTGRES_DB}"
+      POSTGRES_USER: "${RBT_POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${RBT_POSTGRES_PASSWORD}"
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "${RBT_POSTGRES_PORT}"
+    volumes:
+      - db_postgres:/var/lib/postgresql/data
+    networks:
+      default:
+        ipv4_address: "${RBT_POSTGRESS_NETWORK_ADDRESS}"
+
+  clickhouse_server:
+    container_name: "rbt_db_clickhouse_${RBT_INSTANCE}"
+    image: clickhouse/clickhouse-server
+    ports:
+      - "8123"
+      - "9004"
+    volumes:
+      - db_clickhouse:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DB: "${RBT_CLICKHOUSE_DB}"
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+      CLICKHOUSE_USER: "${RBT_CLICKHOUSE_USER}"
+      CLICKHOUSE_PASSWORD: "${RBT_CLICKHOUSE_PASSWORD}"
+    networks:
+      default:
+        ipv4_address: "${RBT_CLICKHOUSE_NETWORK_ADDRESS}"
+
+volumes:
+  db_postgres:
+  db_clickhouse:
+  db_mongodb:
+  rbt_app:
+
+networks:
+  default:
+    name: "rbt_stack_${RBT_INSTANCE}"
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: "${RBT_NETWORK_ADDRESS}"
+          gateway: "${RBT_NETWORK_GW}"
