@@ -1,8 +1,11 @@
 package services
 
-import "log"
+import (
+	"github.com/kulakoff/event-server-go/internal/utils"
+	"log"
+)
 
-func GetIntercomService(panelType string) IntercomService {
+func GetIntercomService(panelType string, clickHouseClient *utils.ClickhouseClient) IntercomService {
 	switch panelType {
 	case "Beward":
 		return &BewardService{}

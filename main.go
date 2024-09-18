@@ -1,62 +1,32 @@
 package main
 
 import (
-	"fmt"
 	"github.com/kulakoff/event-server-go/internal/config"
-	"github.com/kulakoff/event-server-go/internal/services"
-	"log"
+	"github.com/kulakoff/event-server-go/internal/handlers"
+	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
-	"net"
+	"os"
 )
 
 func main() {
-	slog.Info("app started")
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger.Info("app started")
+
 	cfg, err := config.New("config.json")
 	if err != nil {
-		log.Fatalf("Error load config file: %v", err)
+		logger.Warn("Error loading config file", "error", err)
 	}
 
-	go startServer(cfg.Hw.Beward.Port, "Beward")
-	go startServer(cfg.Hw.BewardDS.Port, "BewardDS")
-	go startServer(cfg.Hw.Qtech.Port, "Qtech")
+	// ----- Beward syslog_custom server
+	bewardHandler := handlers.NewBewardHandler(logger)
+	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
+	go bewardServer.Start()
 
+	// ----- Qtech syslog_custom server
+	qtechHandler := handlers.NewBewardHandler(logger)
+	qtechServer := syslog_custom.New(cfg.Hw.Qtech.Port, "Qtech", logger, qtechHandler)
+	go qtechServer.Start()
+
+	// Block main thread
 	select {}
-
-}
-
-func startServer(port int, panelType string) {
-	addr := fmt.Sprintf(":%d", port)
-	udpAddr, err := net.ResolveUDPAddr("udp", addr)
-	if err != nil {
-		log.Fatalf("Error resolving UDP address: %v", err)
-	}
-
-	conn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		log.Fatalf("Error listening UDP: %v", err)
-	}
-	defer conn.Close()
-
-	log.Printf("Server %s running on port %d ", panelType, port)
-
-	buffer := make([]byte, 1024)
-	for {
-		n, _, err := conn.ReadFromUDP(buffer)
-		if err != nil {
-			log.Printf("Error reading from UDP: %v", err)
-			continue
-		}
-
-		message := string(buffer[:n])
-		log.Printf("HW: %s | %s", panelType, message)
-
-		/**
-		TODO:
-			- implements service handlers by device type
-		*/
-		service := services.GetIntercomService(panelType)
-		if err := service.ProcessSyslogMessage(message); err != nil {
-			log.Printf("Error processing syslog message from hw %s: %v", panelType, err)
-		}
-	}
 }

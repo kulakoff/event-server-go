@@ -1,0 +1,4 @@
+github.com/leodido/go-syslog v1.0.1 h1:/I6CcKOIT/Auo/vjvemIaQYnSNFmcv6Xd6kqXaKHZyM=
+github.com/leodido/go-syslog v1.0.1/go.mod h1:iGQLav8eZdt0+DaWcqmGKurRtDPyxwD1Dvc4DG5GMoU=
+github.com/leodido/go-syslog/v4 v4.1.0 h1:Wsl194qyWXr7V6DrGWC3xmxA9Ra6XgWO+toNt2fmCaI=
+github.com/leodido/go-syslog/v4 v4.1.0/go.mod h1:eJ8rUfDN5OS6dOkCOBYlg2a+hbAg6pJa99QXXgMrd98=

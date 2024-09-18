@@ -1,10 +1,12 @@
 package services
 
-import "log"
+import (
+	"log/slog"
+)
 
 type QtechService struct{}
 
 func (b *QtechService) ProcessSyslogMessage(message string) error {
-	log.Println("Process QTECH messages: ", message)
+	slog.Info("Process QTECH messages: ", message)
 	return nil
 }

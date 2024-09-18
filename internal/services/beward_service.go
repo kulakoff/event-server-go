@@ -1,10 +1,12 @@
 package services
 
-import "log"
+import (
+	"log/slog"
+)
 
 type BewardService struct{}
 
 func (b *BewardService) ProcessSyslogMessage(message string) error {
-	log.Println("Process BEWARD messages: ", message)
+	slog.Info("Process BEWARD messages: ", message)
 	return nil
 }
