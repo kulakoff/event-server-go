@@ -2,7 +2,6 @@ package syslog_custom
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"net"
 	"regexp"
@@ -30,7 +29,7 @@ type SyslogMessage struct {
 }
 
 type MessageHandler interface {
-	HandleMessage(srcIP, message string)
+	HandleMessage(srcIP string, message *SyslogMessage)
 }
 
 func (s *SyslogServer) Start() {
@@ -51,23 +50,27 @@ func (s *SyslogServer) Start() {
 
 	buffer := make([]byte, 1024)
 	for {
-		n, srcIP, err := conn.ReadFromUDP(buffer)
+		n, srcAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
-			log.Printf("Error reading from UDP: %v", err)
+			s.logger.Warn("Error reading from UDP: %v", err)
 			continue
 		}
 
 		message := string(buffer[:n])
-		log.Printf("HW: %s | Raw Message: %s", s.unit, message)
+		s.logger.Info("HW: %s | Raw Message: %s", s.unit, message)
 
 		parsedMessage, err := s.ParseMessage(message)
 		if err != nil {
 			s.logger.Warn("Error parsing message", "error", err)
+			continue
 		}
 
-		slog.Info("process-log", "src-ip", srcIP, "msg-ip", parsedMessage.HostName, "msg", parsedMessage.Message)
+		if parsedMessage != nil {
+			srcIP := srcAddr.IP.String()
+			s.handler.HandleMessage(srcIP, parsedMessage)
+			s.logger.Info("process-log", "src-ip", srcIP, "msg-ip", parsedMessage.HostName, "msg", parsedMessage.Message)
+		}
 
-		//s.handler.HandleMessage(srcIP, message)
 	}
 }
 

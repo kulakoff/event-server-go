@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
 )
 
@@ -15,7 +16,7 @@ func NewBewardHandler(logger *slog.Logger) *BewardHandler {
 }
 
 // HandleMessage processes Beward-specific messages
-func (h *BewardHandler) HandleMessage(srcIP, message string) {
+func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.SyslogMessage) {
 	h.logger.Info("Processing Beward message", "srcIP", srcIP, "message", message)
 	// Implement Beward-specific message processing here
 }
