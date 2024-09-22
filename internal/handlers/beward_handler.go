@@ -17,6 +17,6 @@ func NewBewardHandler(logger *slog.Logger) *BewardHandler {
 
 // HandleMessage processes Beward-specific messages
 func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.SyslogMessage) {
-	h.logger.Info("Processing Beward message", "srcIP", srcIP, "message", message)
+	h.logger.Info("Processing Beward message", "srcIP", srcIP, "message", message.Message)
 	// Implement Beward-specific message processing here
 }

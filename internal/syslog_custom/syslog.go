@@ -57,7 +57,6 @@ func (s *SyslogServer) Start() {
 		}
 
 		message := string(buffer[:n])
-		s.logger.Info("HW: %s | Raw Message: %s", s.unit, message)
 
 		parsedMessage, err := s.ParseMessage(message)
 		if err != nil {
@@ -66,9 +65,7 @@ func (s *SyslogServer) Start() {
 		}
 
 		if parsedMessage != nil {
-			srcIP := srcAddr.IP.String()
-			s.handler.HandleMessage(srcIP, parsedMessage)
-			s.logger.Info("process-log", "src-ip", srcIP, "msg-ip", parsedMessage.HostName, "msg", parsedMessage.Message)
+			s.handler.HandleMessage(srcAddr.IP.String(), parsedMessage)
 		}
 
 	}
