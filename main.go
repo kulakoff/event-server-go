@@ -23,7 +23,7 @@ func main() {
 	go bewardServer.Start()
 
 	// ----- Qtech syslog_custom server
-	qtechHandler := handlers.NewBewardHandler(logger)
+	qtechHandler := handlers.NewQtechHandler(logger)
 	qtechServer := syslog_custom.New(cfg.Hw.Qtech.Port, "Qtech", logger, qtechHandler)
 	go qtechServer.Start()
 

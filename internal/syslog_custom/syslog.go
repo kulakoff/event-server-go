@@ -17,7 +17,7 @@ type SyslogServer struct {
 }
 
 type SyslogMessage struct {
-	Format         string    `json:"format"`
+	Format         string    `json:"format"` // custom field "rfc5424" or "BSD" format
 	Priority       int       `json:"priority"`
 	Version        int       `json:"version"`
 	Timestamp      time.Time `json:"timestamp"`
