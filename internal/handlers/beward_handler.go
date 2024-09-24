@@ -39,7 +39,39 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	}
 
 	h.logger.Info("Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+
 	// Implement Beward-specific message processing here
+
+	// Track motion detection
+	if strings.Contains(message.Message, "SS_MAINAPI_ReportAlarmHappen") {
+		h.logger.Debug("Motion detect start", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+		/**
+		TODO:
+			- process motion detect start logic
+			- add Prometheus metrics "motion detect start" per host
+		*/
+	}
+	if strings.Contains(message.Message, "SS_MAINAPI_ReportAlarmFinish") {
+		h.logger.Debug("Motion detect stop", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+		/**
+		TODO:
+			- process motion detect stop logic
+			- add Prometheus metrics "motion detect start" per host
+		*/
+	}
+
+	// Tracks open door
+	if strings.Contains(message.Message, "Opening door by code") {
+		h.logger.Debug("Open door by code", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+	}
+	if strings.Contains(message.Message, "Opening door by RFID") {
+		h.logger.Debug("Open door by RFID", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+	}
+	if strings.Contains(message.Message, "door button pressed") {
+		h.logger.Debug("Open door by button", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+	}
+
+	// Tracks calls
 }
 
 // FilterMessage skip not informational message
