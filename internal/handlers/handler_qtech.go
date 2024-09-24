@@ -22,6 +22,13 @@ func NewQtechHandler(logger *slog.Logger, filters []string) *QtechHandler {
 
 // HandleMessage processes Beward-specific messages
 func (h *QtechHandler) HandleMessage(srcIP string, message *syslog_custom.SyslogMessage) {
+	// filter
+	if h.FilterMessage(message.Message) {
+		// FIXME: remove DEBUG
+		h.logger.Debug("Skipping message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+		return
+	}
+
 	h.logger.Info("Processing Qtech message", "srcIP", srcIP, "message", message.Message)
 	// Implement Qtech-specific message processing here
 }
@@ -29,7 +36,6 @@ func (h *QtechHandler) HandleMessage(srcIP string, message *syslog_custom.Syslog
 // FilterMessage skip not informational message
 func (h *QtechHandler) FilterMessage(message string) bool {
 	for _, word := range h.spamWords {
-		//if strings.Contains(strings.ToLower(message), word) {}
 		if strings.Contains(message, word) {
 			return true
 		}

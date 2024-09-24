@@ -22,7 +22,23 @@ func NewBewardHandler(logger *slog.Logger, filters []string) *BewardHandler {
 
 // HandleMessage processes Beward-specific messages
 func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.SyslogMessage) {
-	h.logger.Info("Processing Beward message", "srcIP", srcIP, "message", message.Message)
+	/**
+	TODO:
+		- add Prometheus metrics per request
+		- count motion detect start or stop
+		- count open by code
+		- count open by button
+		- count open by frid key
+	*/
+
+	// filter
+	if h.FilterMessage(message.Message) {
+		// FIXME: remove DEBUG
+		h.logger.Debug("Skipping message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+		return
+	}
+
+	h.logger.Info("Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 	// Implement Beward-specific message processing here
 }
 
