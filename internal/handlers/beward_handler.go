@@ -4,6 +4,7 @@ import (
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 // BewardHandler handles messages specific to Beward panels
@@ -40,6 +41,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 
 	h.logger.Info("Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 
+	now := time.Now()
 	// Implement Beward-specific message processing here
 
 	// Track motion detection
@@ -64,11 +66,25 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	if strings.Contains(message.Message, "Opening door by code") {
 		h.logger.Debug("Open door by code", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 	}
-	if strings.Contains(message.Message, "Opening door by RFID") {
+	if strings.Contains(message.Message, "Opening door by RFID") ||
+		strings.Contains(message.Message, "Opening door by external RFID") {
 		h.logger.Debug("Open door by RFID", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+
 	}
 	if strings.Contains(message.Message, "door button pressed") {
 		h.logger.Debug("Open door by button", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+		var door int
+		var detail string
+
+		door = 0
+		detail = "main"
+
+		if strings.Contains(message.Message, "Additional") {
+			door = 1
+			detail = "second"
+		}
+
+		h.logger.Debug("Open door by button", "date", now, "ip", message.HostName, "detail", detail, "door", door)
 	}
 
 	// Tracks calls
