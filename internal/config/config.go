@@ -43,6 +43,16 @@ type HwConfig struct {
 	Ufanet       PanelConfig `json:"ufanet"`
 }
 
+type SpamFilters struct {
+	Beward       []string `json:"beward"`
+	Qtech        []string `json:"qtech"`
+	Akuvox       []string `json:"akuvox"`
+	Rubetek      []string `json:"rubetek"`
+	SputnikCloud []string `json:"sputnik_cloud"`
+	Omny         []string `json:"omny"`
+	Ufanet       []string `json:"ufanet"`
+}
+
 func New(fileName string) (*Config, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
@@ -57,4 +67,19 @@ func New(fileName string) (*Config, error) {
 		return nil, fmt.Errorf("failed to decode config file: %w", err)
 	}
 	return config, nil
+}
+
+func LoadSpamFilters(filename string) (*SpamFilters, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open config file: %w", err)
+	}
+	defer file.Close()
+
+	var filters SpamFilters
+	if err := json.NewDecoder(file).Decode(&filters); err != nil {
+		return nil, fmt.Errorf("failed to decode config file: %w", err)
+	}
+
+	return &filters, nil
 }

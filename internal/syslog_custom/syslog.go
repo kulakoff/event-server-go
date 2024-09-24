@@ -30,6 +30,7 @@ type SyslogMessage struct {
 
 type MessageHandler interface {
 	HandleMessage(srcIP string, message *SyslogMessage)
+	FilterMessage(message string) bool
 }
 
 func (s *SyslogServer) Start() {
