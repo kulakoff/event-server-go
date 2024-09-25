@@ -43,11 +43,9 @@ func (h *BewardHandler) FilterMessage(message string) bool {
 //}
 
 func (h *BewardHandler) ExtractRFIDKey(message string) string {
-	// TODO: ser RFID  regexp
-	rfidRegex := regexp.MustCompile("RFID_MASK_EXAMPLE")
+	rfidRegex := regexp.MustCompile(`\b([0-9A-Fa-f]{14})\b`)
 	match := rfidRegex.FindStringSubmatch(message)
 	if len(match) > 1 {
-		h.logger.Debug("FOUND RFID", match[1])
 		return match[1]
 	}
 	return ""
@@ -55,6 +53,7 @@ func (h *BewardHandler) ExtractRFIDKey(message string) string {
 
 func (h *BewardHandler) APICall() error {
 	// Implement API call to RBT
+	return nil
 }
 
 // HandleMessage processes Beward-specific messages
@@ -106,6 +105,31 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		strings.Contains(message.Message, "Opening door by external RFID") {
 		h.logger.Debug("Open door by RFID", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 
+		// external reader
+		var isExternalReader bool
+		if strings.Contains(message.Message, "external") {
+			isExternalReader = true
+		} else {
+			isExternalReader = false
+		}
+
+		// rfid
+		rfidKey := h.ExtractRFIDKey(message.Message)
+		if rfidKey != "" {
+			h.logger.Debug("RFID key found", "srcIP", srcIP, "host", message.HostName, "rfid", rfidKey)
+		} else {
+			h.logger.Warn("RFID key not found", "srcIP", srcIP, "host", message.HostName)
+		}
+
+		// door
+		var door int
+		if isExternalReader {
+			door = 1
+		} else {
+			door = 0
+		}
+
+		h.logger.Info("Open by RFID", "door", door, "rfid", rfidKey)
 	}
 	if strings.Contains(message.Message, "door button pressed") {
 		h.logger.Debug("Open door by button", "srcIP", srcIP, "host", message.HostName, "message", message.Message)

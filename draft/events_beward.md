@@ -19,3 +19,8 @@
 {"time":"2024-09-24T23:08:38.649189204+03:00","level":"INFO","msg":"Processing Beward message","srcIP":"37.235.143.99","host":"192.168.13.152","message":"[61255] SIP call done for apartment 1, handset is down"}
 {"time":"2024-09-24T23:08:40.5515295+03:00","level":"INFO","msg":"Processing Beward message","srcIP":"37.235.143.99","host":"192.168.13.152","message":"[61255] All calls are done for apartment 1"}
 ```
+
+##### RFID
+```json
+{"time":"2024-09-25T22:20:59.550499106+03:00","level":"INFO","msg":"Processing Beward message","srcIP":"192.168.88.25","host":"localhost.localdomain","message":"Opening door by RFID 00000075BC01AD, apartment 0"}
+```

@@ -10,7 +10,7 @@ import (
 
 func main() {
 	// TODO: added log level from ENV
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	logger.Info("app started")
 
 	// load main config
