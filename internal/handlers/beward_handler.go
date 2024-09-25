@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -19,6 +20,41 @@ func NewBewardHandler(logger *slog.Logger, filters []string) *BewardHandler {
 		logger:    logger,
 		spamWords: filters,
 	}
+}
+
+// FilterMessage skip not informational message
+func (h *BewardHandler) FilterMessage(message string) bool {
+	for _, word := range h.spamWords {
+		//if strings.Contains(strings.ToLower(message), word) {}
+		if strings.Contains(message, word) {
+			return true
+		}
+	}
+	return false
+}
+
+// node examle
+//// Opening a door by RFID key
+//if (msg.includes("Opening door by RFID") || msg.includes("Opening door by external RFID")) {
+//const rfid = msg.match(/\b([0-9A-Fa-f]{14})\b/g)?.[0] || null;
+//const isExternalReader = msg.includes('external') || rfid && rfid[6] === '0' && rfid[7] === '0';
+//const door = isExternalReader ? 1 : 0;
+//await API.openDoor({date: now, ip: host, door, detail: rfid, by: "rfid"});
+//}
+
+func (h *BewardHandler) ExtractRFIDKey(message string) string {
+	// TODO: ser RFID  regexp
+	rfidRegex := regexp.MustCompile("RFID_MASK_EXAMPLE")
+	match := rfidRegex.FindStringSubmatch(message)
+	if len(match) > 1 {
+		h.logger.Debug("FOUND RFID", match[1])
+		return match[1]
+	}
+	return ""
+}
+
+func (h *BewardHandler) APICall() error {
+	// Implement API call to RBT
 }
 
 // HandleMessage processes Beward-specific messages
@@ -88,15 +124,4 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	}
 
 	// Tracks calls
-}
-
-// FilterMessage skip not informational message
-func (h *BewardHandler) FilterMessage(message string) bool {
-	for _, word := range h.spamWords {
-		//if strings.Contains(strings.ToLower(message), word) {}
-		if strings.Contains(message, word) {
-			return true
-		}
-	}
-	return false
 }
