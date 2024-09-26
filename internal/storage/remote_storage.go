@@ -58,5 +58,5 @@ func (c *ClikhouseHandler) SendLog(message *SyslogStorageMessage) {
 		os.Exit(1)
 	}
 
-	c.logger.Info("Message inserted")
+	c.logger.Debug("Message inserted")
 }
