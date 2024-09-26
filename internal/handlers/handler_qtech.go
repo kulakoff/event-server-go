@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
 	"strings"
@@ -10,13 +11,15 @@ import (
 type QtechHandler struct {
 	logger    *slog.Logger
 	spamWords []string
+	storage   *storage.ClikhouseHandler
 }
 
 // NewQtechHandler creates a new QtechHandler
-func NewQtechHandler(logger *slog.Logger, filters []string) *QtechHandler {
+func NewQtechHandler(logger *slog.Logger, filters []string, storage *storage.ClikhouseHandler) *QtechHandler {
 	return &QtechHandler{
 		logger:    logger,
 		spamWords: filters,
+		storage:   storage,
 	}
 }
 

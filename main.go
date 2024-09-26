@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/kulakoff/event-server-go/internal/config"
 	"github.com/kulakoff/event-server-go/internal/handlers"
+	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
 	"os"
@@ -19,6 +20,11 @@ func main() {
 		logger.Warn("Error loading config file", "error", err)
 	}
 
+	ch, err := storage.New(logger, "172.28.0.7:9000")
+	if err != nil {
+		logger.Warn("Error init Clickhouse", "error", err)
+	}
+
 	// load spam filter
 	spamFilers, err := config.LoadSpamFilters("spamwords.json")
 	if err != nil {
@@ -26,12 +32,12 @@ func main() {
 	}
 
 	// ----- Beward syslog_custom server
-	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward)
+	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch)
 	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
 	go bewardServer.Start()
 
 	// ----- Qtech syslog_custom server
-	qtechHandler := handlers.NewQtechHandler(logger, spamFilers.Qtech)
+	qtechHandler := handlers.NewQtechHandler(logger, spamFilers.Qtech, ch)
 	qtechServer := syslog_custom.New(cfg.Hw.Qtech.Port, "Qtech", logger, qtechHandler)
 	go qtechServer.Start()
 

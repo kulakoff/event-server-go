@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
 	"regexp"
@@ -12,13 +13,15 @@ import (
 type BewardHandler struct {
 	logger    *slog.Logger
 	spamWords []string
+	storage   *storage.ClikhouseHandler
 }
 
 // NewBewardHandler creates a new BewardHandler
-func NewBewardHandler(logger *slog.Logger, filters []string) *BewardHandler {
+func NewBewardHandler(logger *slog.Logger, filters []string, storage *storage.ClikhouseHandler) *BewardHandler {
 	return &BewardHandler{
 		logger:    logger,
 		spamWords: filters,
+		storage:   storage,
 	}
 }
 
