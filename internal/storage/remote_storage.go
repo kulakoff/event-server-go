@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"log/slog"
+	"os"
 	"time"
 )
 
@@ -14,11 +15,11 @@ type ClikhouseHandler struct {
 }
 
 type SyslogStorageMessage struct {
-	Date  time.Time `json:"date"`
-	Ip    string    `json:"ip"`
-	SubId string    `json:"sub_id"`
-	Unit  string    `json:"unit"`
-	Msg   string    `json:"msg"`
+	Date  string `json:"date"`
+	Ip    string `json:"ip"`
+	SubId string `json:"sub_id"`
+	Unit  string `json:"unit"`
+	Msg   string `json:"msg"`
 }
 
 func New(logger *slog.Logger, dsn string) (*ClikhouseHandler, error) {
@@ -43,6 +44,7 @@ func New(logger *slog.Logger, dsn string) (*ClikhouseHandler, error) {
 }
 
 func (c *ClikhouseHandler) SendLog(message *SyslogStorageMessage) {
+	fmt.Println(message)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
@@ -50,6 +52,7 @@ func (c *ClikhouseHandler) SendLog(message *SyslogStorageMessage) {
 		message.Date, message.Ip, message.SubId, message.Unit, message.Msg)
 	if err != nil {
 		c.logger.Warn("Failed to insert into ClickHouse", "error", err)
+		os.Exit(1)
 	}
 
 	c.logger.Info("Message inserted")

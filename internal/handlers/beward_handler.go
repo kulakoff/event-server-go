@@ -5,6 +5,7 @@ import (
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -78,6 +79,16 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	}
 
 	h.logger.Info("Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+
+	storageMessage := storage.SyslogStorageMessage{
+		Date:  strconv.FormatInt(time.Now().Unix(), 10),
+		Ip:    srcIP,
+		SubId: "",
+		Unit:  "beward",
+		Msg:   message.Message,
+	}
+
+	h.storage.SendLog(&storageMessage)
 
 	now := time.Now()
 	// Implement Beward-specific message processing here
