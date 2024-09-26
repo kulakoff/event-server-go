@@ -47,6 +47,7 @@ func (h *BewardHandler) FilterMessage(message string) bool {
 //await API.openDoor({date: now, ip: host, door, detail: rfid, by: "rfid"});
 //}
 
+// ExtractRFIDKey parse RFID key from message
 func (h *BewardHandler) ExtractRFIDKey(message string) string {
 	rfidRegex := regexp.MustCompile(`\b([0-9A-Fa-f]{14})\b`)
 	match := rfidRegex.FindStringSubmatch(message)
@@ -88,7 +89,6 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	} else {
 		host = srcIP
 	}
-
 	storageMessage := storage.SyslogStorageMessage{
 		Date:  strconv.FormatInt(time.Now().Unix(), 10),
 		Ip:    host,
@@ -96,10 +96,10 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		Unit:  "beward",
 		Msg:   message.Message,
 	}
-
 	h.storage.SendLog(&storageMessage)
 
 	now := time.Now()
+
 	// Implement Beward-specific message processing here
 
 	// Track motion detection
@@ -153,6 +153,14 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		}
 
 		h.logger.Info("Open by RFID", "door", door, "rfid", rfidKey)
+		/**
+		TODO:
+			- API call to update RFID usage timestamp
+			- get stream name
+			- get best quality image from FRS or DVR by stream name
+			- save image to mongoDb
+			- save plog to clickhouse
+		*/
 	}
 	if strings.Contains(message.Message, "door button pressed") {
 		h.logger.Debug("Open door by button", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
