@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/kulakoff/event-server-go/internal/config"
 	"log/slog"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -22,13 +24,14 @@ type SyslogStorageMessage struct {
 	Msg   string `json:"msg"`
 }
 
-func New(logger *slog.Logger, dsn string) (*ClikhouseHandler, error) {
+func New(logger *slog.Logger, config *config.ClickhouseConfig) (*ClikhouseHandler, error) {
+	dsn := config.Host + ":" + strconv.Itoa(config.Port)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{dsn},
 		Auth: clickhouse.Auth{
-			Username: "default",
-			Password: "qqq",
-			Database: "default",
+			Username: config.Username,
+			Password: config.Password,
+			Database: config.Database,
 		},
 	})
 

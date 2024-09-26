@@ -20,7 +20,8 @@ func main() {
 		logger.Warn("Error loading config file", "error", err)
 	}
 
-	ch, err := storage.New(logger, "172.28.0.7:9000")
+	chDsn := cfg.Clickhouse
+	ch, err := storage.New(logger, &chDsn)
 	if err != nil {
 		logger.Warn("Error init Clickhouse", "error", err)
 	}

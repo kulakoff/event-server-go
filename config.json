@@ -3,39 +3,47 @@
     "nat": false
   },
   "clickhouse": {
-    "host": "127.0.0.1",
-    "port": 8123,
-    "database": "default",
+    "host": "172.28.0.7",
+    "port": 9000,
+    "database": "dev",
     "username": "default",
-    "password": "qqq"
+    "password": "qwertyuiop"
   },
   "api": {
     "internal": "http://127.0.0.1/internal"
   },
   "hw": {
     "beward": {
-      "port": 45450
+      "port": 45450,
+      "nat": true
     },
     "beward_ds": {
-      "port": 45451
+      "port": 45451,
+      "nat": true
     },
     "qtech": {
-      "port": 45452
+      "port": 45452,
+      "nat": true
     },
     "is": {
-      "port": 45453
+      "port": 45453,
+      "nat": true
     },
     "hikvision": {
-      "port": 45454
+      "port": 45454,
+      "nat": true
     },
     "akuvox": {
-      "port": 45455
+      "port": 45455,
+      "nat": true
     },
     "rubetek": {
-      "port": 45456
+      "port": 45456,
+      "nat": true
     },
     "sputnik_cloud": {
       "port": 45457,
+      "nat": true,
       "apiEndpoint": "/webhook/sputnik"
     },
     "omny": {
