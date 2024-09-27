@@ -30,6 +30,10 @@ func main() {
 
 	// mongodb init
 	mongo, err := storage.NewMongoDb(logger, cfg.MongoDb)
+	if err != nil {
+		logger.Error("Error init MongoDB", "error", err)
+		os.Exit(1)
+	}
 
 	// load spam filter
 	spamFilers, err := config.LoadSpamFilters("spamwords.json")
@@ -38,12 +42,12 @@ func main() {
 	}
 
 	// ----- Beward syslog_custom server
-	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch)
+	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch, mongo)
 	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
 	go bewardServer.Start()
 
 	// ----- Qtech syslog_custom server
-	qtechHandler := handlers.NewQtechHandler(logger, spamFilers.Qtech, ch)
+	qtechHandler := handlers.NewQtechHandler(logger, spamFilers.Qtech, ch, mongo)
 	qtechServer := syslog_custom.New(cfg.Hw.Qtech.Port, "Qtech", logger, qtechHandler)
 	go qtechServer.Start()
 

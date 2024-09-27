@@ -18,6 +18,7 @@ type BewardHandler struct {
 	logger    *slog.Logger
 	spamWords []string
 	storage   *storage.ClikhouseHandler
+	fsFiles   *storage.MongoHandler
 }
 
 type OpenDoorMsg struct {
@@ -29,7 +30,7 @@ type OpenDoorMsg struct {
 }
 
 // NewBewardHandler creates a new BewardHandler
-func NewBewardHandler(logger *slog.Logger, filters []string, storage *storage.ClikhouseHandler) *BewardHandler {
+func NewBewardHandler(logger *slog.Logger, filters []string, storage *storage.ClikhouseHandler, mongo *storage.MongoHandler) *BewardHandler {
 	return &BewardHandler{
 		logger:    logger,
 		spamWords: filters,

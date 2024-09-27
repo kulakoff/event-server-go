@@ -12,10 +12,11 @@ type QtechHandler struct {
 	logger    *slog.Logger
 	spamWords []string
 	storage   *storage.ClikhouseHandler
+	fsFiles   *storage.MongoHandler
 }
 
 // NewQtechHandler creates a new QtechHandler
-func NewQtechHandler(logger *slog.Logger, filters []string, storage *storage.ClikhouseHandler) *QtechHandler {
+func NewQtechHandler(logger *slog.Logger, filters []string, storage *storage.ClikhouseHandler, mongo *storage.MongoHandler) *QtechHandler {
 	return &QtechHandler{
 		logger:    logger,
 		spamWords: filters,
