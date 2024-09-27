@@ -6,7 +6,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/kulakoff/event-server-go/internal/config"
 	"log/slog"
-	"os"
 	"strconv"
 	"time"
 )
@@ -46,16 +45,15 @@ func New(logger *slog.Logger, config *config.ClickhouseConfig) (*ClikhouseHandle
 	return &ClikhouseHandler{logger: logger, clickhouse: conn}, nil
 }
 
-func (c *ClikhouseHandler) SendLog(message *SyslogStorageMessage) {
-	fmt.Println(message)
+func (c *ClikhouseHandler) SendLog(message SyslogStorageMessage) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
 	err := c.clickhouse.Exec(ctx, "INSERT INTO syslog (date, ip, sub_id, unit, msg) VALUES (?, ?, ? ,? ,?)",
 		message.Date, message.Ip, message.SubId, message.Unit, message.Msg)
 	if err != nil {
-		c.logger.Warn("Failed to insert into ClickHouse", "error", err)
-		os.Exit(1)
+		c.logger.Error("Failed to insert into ClickHouse", "error", err)
+		return
 	}
 
 	c.logger.Debug("Message inserted")

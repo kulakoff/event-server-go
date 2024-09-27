@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"log/slog"
 	"net"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -72,6 +76,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		- count open by button
 		- count open by frid key
 	*/
+	now := time.Now()
 
 	// filter
 	if h.FilterMessage(message.Message) {
@@ -80,15 +85,17 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		return
 	}
 
-	h.logger.Info("Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+	h.logger.Debug("Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 
-	// get ip address from syslog message body
+	// ----- storage message
 	var host string
-	if net.ParseIP(message.HostName) != nil && srcIP != message.HostName {
+	// use host ip from syslog message
+	if net.ParseIP(message.HostName) != nil && message.HostName != "127.0.0.1" && srcIP != message.HostName {
 		host = message.HostName
 	} else {
 		host = srcIP
 	}
+
 	storageMessage := storage.SyslogStorageMessage{
 		Date:  strconv.FormatInt(time.Now().Unix(), 10),
 		Ip:    host,
@@ -96,10 +103,11 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		Unit:  "beward",
 		Msg:   message.Message,
 	}
-	h.storage.SendLog(&storageMessage)
 
-	now := time.Now()
+	// ----- send log to remote storage
+	h.storage.SendLog(storageMessage)
 
+	// --------------------
 	// Implement Beward-specific message processing here
 
 	// Track motion detection
@@ -126,7 +134,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	}
 	if strings.Contains(message.Message, "Opening door by RFID") ||
 		strings.Contains(message.Message, "Opening door by external RFID") {
-		h.logger.Debug("Open door by RFID", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+		h.logger.Debug("Open door by RFID")
 
 		// external reader
 		var isExternalReader bool
@@ -152,16 +160,37 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 			door = 0
 		}
 
-		h.logger.Info("Open by RFID", "door", door, "rfid", rfidKey)
+		h.logger.Debug("Open by RFID", "door", door, "rfid", rfidKey)
 		/**
 		TODO:
-			- API call to update RFID usage timestamp
-			- get stream name
-			- get best quality image from FRS or DVR by stream name
-			- save image to mongoDb
-			- save plog to clickhouse
+			- 1. API call to update RFID usage timestamp
+			- 2. get stream name
+			- 3. get best quality image from FRS or DVR by stream name
+			- 4. save image to mongoDb
+			- 5. save plog to clickhouse
 		*/
+
+		// 1
+		rbtMessage := OpenDoorMsg{
+			Date:   strconv.FormatInt(time.Now().Unix(), 10),
+			IP:     host,
+			SubId:  "",
+			Event:  3,
+			Detail: rfidKey,
+		}
+		err := h.APICallToRBT(&rbtMessage)
+		if err != nil {
+			h.logger.Error("APICallToRBT", "err", err)
+		}
+
+		// 2
+		// TODO: implement get stream name by ip intercom
+		//streamName := 8
+
+		// 3
+
 	}
+
 	if strings.Contains(message.Message, "door button pressed") {
 		h.logger.Debug("Open door by button", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 		var door int
@@ -179,4 +208,48 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	}
 
 	// Tracks calls
+}
+
+type OpenDoorMsg struct {
+	Date   string `json:"date"`
+	IP     string `json:"IP"`
+	SubId  string `json:"subId"`
+	Event  int    `json:"event"`
+	Detail string `json:"detail"`
+}
+
+func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
+	//url := "http://172.28.0.2/internal/actions/openDoor"
+	url := "https://webhook.site/55437bdc-ee94-48d1-b295-22a9f164b610/openDoor"
+	method := "POST"
+	fmt.Println(payload)
+
+	// valid payload
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed marshal payload %w", err)
+	}
+
+	// make http request and client
+	client := &http.Client{Timeout: time.Second * 10}
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("failed to create request %w", err)
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	// call request
+	res, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected response status: %s", res.Status)
+	}
+
+	h.logger.Debug("RFID event sent success")
+
+	return nil
 }

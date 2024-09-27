@@ -20,7 +20,47 @@
 {"time":"2024-09-24T23:08:40.5515295+03:00","level":"INFO","msg":"Processing Beward message","srcIP":"37.235.143.99","host":"192.168.13.152","message":"[61255] All calls are done for apartment 1"}
 ```
 
-##### RFID
-```json
-{"time":"2024-09-25T22:20:59.550499106+03:00","level":"INFO","msg":"Processing Beward message","srcIP":"192.168.88.25","host":"localhost.localdomain","message":"Opening door by RFID 00000075BC01AD, apartment 0"}
+##### RFID 
+```
+2024-09-25T22:20:59 Opening door by RFID 00000075BC01AD, apartment 0
+```
+
+##### RFID external reader
+```
+2024-09-27 07:55:30 Opening door by external RFID 000000C69798DA, apartment 0
+```
+
+
+##### Open door by button
+```
+2024-09-27 08:05:43	Main door button pressed!
+2024-09-27 08:05:43	Main door opened by button press
+2024-09-27 08:05:46	Main door button unpressed!
+2024-09-27 08:05:50	Main door button pressed!
+2024-09-27 08:05:50	Main door opened by button press
+```
+
+##### Open door by button. Additional door
+```
+2024-09-27 08:06:33	Additional door button pressed!
+2024-09-27 08:06:33	Alt door opened by button press
+2024-09-27 08:06:35	Additional door button unpressed!
+```
+
+##### Motion start
+```
+2024-09-27 07:24:00	SS_MAINAPI_ReportAlarmHappen(0, 2)
+```
+
+##### Motion stop
+```
+2024-09-27 07:24:03	SS_MAINAPI_ReportAlarmFinish(0, 2)
+```
+
+##### other
+```
+2024-09-26 05:39:02	IMX122_AutoIRcut_Task to Day ----------
+2024-09-26 18:52:20	IMX122_AutoIRcut_Task to Night ----------
+2024-09-26 19:51:15	IMX122_AutoIRcut_Task to Day ----------
+2024-09-26 21:21:40	IMX122_AutoIRcut_Task to Night ----------
 ```
