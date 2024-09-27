@@ -23,7 +23,7 @@ type SyslogStorageMessage struct {
 	Msg   string `json:"msg"`
 }
 
-func New(logger *slog.Logger, config *config.ClickhouseConfig) (*ClikhouseHandler, error) {
+func NewClickhouse(logger *slog.Logger, config *config.ClickhouseConfig) (*ClikhouseHandler, error) {
 	dsn := config.Host + ":" + strconv.Itoa(config.Port)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{dsn},

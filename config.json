@@ -7,7 +7,11 @@
     "port": 9000,
     "database": "dev",
     "username": "default",
-    "password": "qqq"
+    "password": "qwertyuiop"
+  },
+  "mongo": {
+    "uri": "mongodb://localhost:27017",
+    "database": "rbt"
   },
   "api": {
     "internal": "http://127.0.0.1/internal"

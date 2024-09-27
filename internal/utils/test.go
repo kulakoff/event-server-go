@@ -1,4 +1,4 @@
-package test
+package utils
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ func SendPostRequest(url string, headers map[string]string, payload interface{})
 }
 
 func GetBestQuality(streamId int, timestamp string) {
-	url := "http://localhost:9051/api/bestQuality"
+	url := "http://rbt-demo.lanta.me:9051/api/bestQuality"
 
 	// make headers
 	headers := map[string]string{

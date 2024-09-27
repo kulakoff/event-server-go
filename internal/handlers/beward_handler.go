@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
+	"github.com/kulakoff/event-server-go/internal/utils"
 	"log/slog"
 	"net"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,6 +18,14 @@ type BewardHandler struct {
 	logger    *slog.Logger
 	spamWords []string
 	storage   *storage.ClikhouseHandler
+}
+
+type OpenDoorMsg struct {
+	Date   string `json:"date"`
+	IP     string `json:"IP"`
+	SubId  string `json:"subId"`
+	Event  int    `json:"event"`
+	Detail string `json:"detail"`
 }
 
 // NewBewardHandler creates a new BewardHandler
@@ -59,11 +65,6 @@ func (h *BewardHandler) ExtractRFIDKey(message string) string {
 		return match[1]
 	}
 	return ""
-}
-
-func (h *BewardHandler) APICall() error {
-	// Implement API call to RBT
-	return nil
 }
 
 // HandleMessage processes Beward-specific messages
@@ -210,46 +211,21 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	// Tracks calls
 }
 
-type OpenDoorMsg struct {
-	Date   string `json:"date"`
-	IP     string `json:"IP"`
-	SubId  string `json:"subId"`
-	Event  int    `json:"event"`
-	Detail string `json:"detail"`
-}
-
+// APICallToRBT Update RFID usage timestamp
 func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
 	//url := "http://172.28.0.2/internal/actions/openDoor"
 	url := "https://webhook.site/55437bdc-ee94-48d1-b295-22a9f164b610/openDoor"
-	method := "POST"
 	fmt.Println(payload)
 
-	// valid payload
-	jsonPayload, err := json.Marshal(payload)
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	_, err := utils.SendPostRequest(url, headers, payload)
 	if err != nil {
-		return fmt.Errorf("failed marshal payload %w", err)
+		return err
 	}
 
-	// make http request and client
-	client := &http.Client{Timeout: time.Second * 10}
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonPayload))
-	if err != nil {
-		return fmt.Errorf("failed to create request %w", err)
-	}
-	req.Header.Add("Content-Type", "application/json")
-
-	// call request
-	res, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request %w", err)
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected response status: %s", res.Status)
-	}
-
-	h.logger.Debug("RFID event sent success")
-
+	h.logger.Debug("Successfully sent OpenDoorMsg")
 	return nil
 }

@@ -11,6 +11,7 @@ type Config struct {
 		NAT bool `json:"nat"`
 	}
 	Clickhouse ClickhouseConfig `json:"clickhouse"`
+	MongoDb    *MongoDbConfig   `json:"mongodb"`
 	API        struct {
 		Internal string `json:"internal"`
 	}
@@ -28,6 +29,11 @@ type ClickhouseConfig struct {
 	Database string `json:"database"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+type MongoDbConfig struct {
+	URI      string `json:"uri"`
+	Database string `json:"database"`
 }
 
 type HwConfig struct {
