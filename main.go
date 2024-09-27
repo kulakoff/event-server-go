@@ -22,14 +22,14 @@ func main() {
 
 	// clickhouse init
 	chDsn := cfg.Clickhouse
-	ch, err := storage.New(logger, &chDsn)
+	ch, err := storage.NewClickhouse(logger, &chDsn)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
 	}
 
 	// mongodb init
-	mongo, err := storage.NewMongoDb(logger, cfg.MongoDb.URI, cfg.MongoDb.Database)
+	mongo, err := storage.NewMongoDb(logger, cfg.MongoDb)
 
 	// load spam filter
 	spamFilers, err := config.LoadSpamFilters("spamwords.json")

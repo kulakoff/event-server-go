@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"github.com/kulakoff/event-server-go/internal/config"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log/slog"
@@ -15,8 +16,8 @@ type MongoHandler struct {
 	db     *mongo.Database
 }
 
-func NewMongoDb(logger *slog.Logger, uri string, dbName string) (*MongoHandler, error) {
-	clientOptions := options.Client().ApplyURI(uri)
+func NewMongoDb(logger *slog.Logger, mongoDbConfig *config.MongoDbConfig) (*MongoHandler, error) {
+	clientOptions := options.Client().ApplyURI(mongoDbConfig.URI)
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
@@ -33,6 +34,6 @@ func NewMongoDb(logger *slog.Logger, uri string, dbName string) (*MongoHandler, 
 	return &MongoHandler{
 		logger: logger,
 		client: client,
-		db:     client.Database(dbName),
+		db:     client.Database(mongoDbConfig.Database),
 	}, nil
 }
