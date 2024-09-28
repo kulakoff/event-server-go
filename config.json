@@ -9,8 +9,8 @@
     "username": "default",
     "password": "qwertyuiop"
   },
-  "mongo": {
-    "uri": "mongodb://localhost:27017",
+  "mongodb": {
+    "uri": "mongodb://172.28.0.5:27017",
     "database": "rbt"
   },
   "api": {
