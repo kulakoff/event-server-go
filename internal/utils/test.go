@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 )
 
 type GetBestQualityData struct {
@@ -85,5 +86,32 @@ func GetBestQuality(streamId int, timestamp string) {
 		fmt.Println("error decoding response", err)
 		return
 	}
+
 	fmt.Println(bestQualityResp.Data.Screenshot)
+}
+
+func DownloadFile(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error downloading file: %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %v", err)
+	}
+	return body, nil
+}
+
+func SaveFile(fileName string, data []byte) error {
+	file, err := os.Create(fileName)
+	if err != nil {
+		return fmt.Errorf("error creating file: %v", err)
+	}
+	_, err = file.Write(data)
+	if err != nil {
+		return fmt.Errorf("error writing file: %v", err)
+	}
+
+	return nil
 }

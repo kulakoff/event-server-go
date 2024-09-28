@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"github.com/kulakoff/event-server-go/internal/config"
 	"github.com/kulakoff/event-server-go/internal/handlers"
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
+	"github.com/kulakoff/event-server-go/internal/test"
 	"log/slog"
 	"os"
 )
@@ -19,6 +21,8 @@ func main() {
 	if err != nil {
 		logger.Warn("Error loading config file", "error", err)
 	}
+
+	fmt.Println(cfg.MongoDb)
 
 	// clickhouse init
 	chDsn := cfg.Clickhouse
@@ -51,7 +55,8 @@ func main() {
 	qtechServer := syslog_custom.New(cfg.Hw.Qtech.Port, "Qtech", logger, qtechHandler)
 	go qtechServer.Start()
 
-	//utils.GetBestQuality(8, "2024-09-27 16:26:23")
+	test.Draft()
+
 	// Block main thread
 	select {}
 }
