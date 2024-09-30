@@ -53,6 +53,7 @@ func main() {
 	go qtechServer.Start()
 
 	test.Draft()
+	//fmt.Println(time.Now().Unix())
 
 	// Block main thread
 	select {}

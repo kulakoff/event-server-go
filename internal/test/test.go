@@ -7,6 +7,7 @@ import (
 	"github.com/kulakoff/event-server-go/internal/utils"
 	"log/slog"
 	"os"
+	"time"
 )
 
 func Draft() {
@@ -32,9 +33,11 @@ func Draft() {
 		fmt.Println("error ")
 		return
 	}
+
+	// TODO: use int64 or int32 for unix timestamp
 	metadata := map[string]interface{}{
 		"contentType": "image/png",
-		"expire":      1742307721,
+		"expire":      int32(time.Now().Add(time.Hour * 24 * 30 * 6).Unix()),
 	}
 
 	//save local file
