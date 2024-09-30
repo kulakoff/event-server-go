@@ -47,7 +47,8 @@ func (m *MongoHandler) SaveFile(filename string, metadata map[string]interface{}
 		return primitive.NilObjectID, fmt.Errorf("failed to create GRIDFS bucket: %w", err)
 	}
 
-	uploadStream, err := bucket.OpenUploadStream(filename)
+	uploadOptions := options.GridFSUpload().SetMetadata(metadata)
+	uploadStream, err := bucket.OpenUploadStream(filename, uploadOptions)
 	if err != nil {
 		return primitive.NilObjectID, fmt.Errorf("failed to open upload stream: %w", err)
 	}

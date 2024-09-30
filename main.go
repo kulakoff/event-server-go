@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/kulakoff/event-server-go/internal/config"
 	"github.com/kulakoff/event-server-go/internal/handlers"
 	"github.com/kulakoff/event-server-go/internal/storage"
@@ -21,8 +20,6 @@ func main() {
 	if err != nil {
 		logger.Warn("Error loading config file", "error", err)
 	}
-
-	fmt.Println(cfg.MongoDb)
 
 	// clickhouse init
 	chDsn := cfg.Clickhouse

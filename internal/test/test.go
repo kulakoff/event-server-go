@@ -37,6 +37,12 @@ func Draft() {
 		"expire":      1742307721,
 	}
 
+	//save local file
+	err = os.WriteFile("Opensuse_lightray.png", response, 0640)
+	if err != nil {
+		return
+	}
+
 	fileId, err := mongo.SaveFile("camshot", metadata, response)
 	if err != nil {
 		logger.Warn("Error saving file", "error", err)
