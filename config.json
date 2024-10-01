@@ -3,14 +3,14 @@
     "nat": false
   },
   "clickhouse": {
-    "host": "172.29.10.7",
+    "host": "172.20.19.7",
     "port": 9000,
     "database": "dev",
     "username": "default",
     "password": "qwertyuiop"
   },
   "mongodb": {
-    "uri": "mongodb://root:example@172.29.10.5:27017",
+    "uri": "mongodb://root:example@172.20.19.5:27017",
     "database": "rbt"
 
   },

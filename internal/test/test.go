@@ -30,7 +30,7 @@ func Draft() {
 	//utils.GetBestQuality(8, "2024-09-27 16:26:23")
 	response, err := utils.DownloadFile("https://en.opensuse.org/images/a/ab/Opensuse_lightray.png")
 	if err != nil {
-		fmt.Println("error ")
+		fmt.Println("Download file err", err)
 		return
 	}
 
@@ -59,4 +59,25 @@ func Draft() {
 	//	return
 	//}
 
+}
+
+func TestTime() {
+	now := time.Now()
+	nowFormatted := now.Format("2006-01-02 15:04:05")
+	fmt.Println("NOW", now)
+	fmt.Println("NOW formatted", nowFormatted)
+}
+
+func GetEvent() {
+	streamId := 8
+	timeStr := "2024-10-01 14:44:44"
+	now, _ := time.Parse("2006-01-02 15:04:05", timeStr)
+	frsResp, err := utils.GetBestQuality(streamId, now)
+	if err != nil {
+		slog.Info("FRS GetBestQuality", "err", err)
+	} else if frsResp != nil {
+		slog.Info("FRS GetBestQuality OK", "screenshot", frsResp.Data.Screenshot)
+	} else {
+		slog.Info("FRS GetBestQuality no frame", "err", err)
+	}
 }

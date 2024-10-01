@@ -137,8 +137,20 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	if strings.Contains(message.Message, "Opening door by RFID") ||
 		strings.Contains(message.Message, "Opening door by external RFID") {
 		h.logger.Debug("Open door by RFID")
+		/**
+		TODO:
+			1 get external reader
+			2 get RFID key
+			3 get door (main or addition)
+			4 update the RFID key last usage date (API call to RBT)
+			5 get streamName, streamId
+			6 get best quality image from FRS, if exist
+			7 get screenshot from media server if FRS not have image
+			8 storage image to MongoDB
+			9 create "plog" record to clickhouse
+		*/
 
-		// external reader
+		// ----- 1
 		var isExternalReader bool
 		if strings.Contains(message.Message, "external") {
 			isExternalReader = true
@@ -146,7 +158,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 			isExternalReader = false
 		}
 
-		// rfid
+		// ----- 2
 		rfidKey := h.ExtractRFIDKey(message.Message)
 		if rfidKey != "" {
 			h.logger.Debug("RFID key found", "srcIP", srcIP, "host", message.HostName, "rfid", rfidKey)
@@ -154,7 +166,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 			h.logger.Warn("RFID key not found", "srcIP", srcIP, "host", message.HostName)
 		}
 
-		// door
+		// ----- 3
 		var door int
 		if isExternalReader {
 			door = 1
@@ -172,9 +184,9 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 			- 5. save plog to clickhouse
 		*/
 
-		// 1
+		// ----- 4
 		rbtMessage := OpenDoorMsg{
-			Date:   strconv.FormatInt(time.Now().Unix(), 10),
+			Date:   strconv.FormatInt(now.Unix(), 10),
 			IP:     host,
 			SubId:  "",
 			Event:  3,
@@ -185,11 +197,20 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 			h.logger.Error("APICallToRBT", "err", err)
 		}
 
-		// 2
-		// TODO: implement get stream name by ip intercom
+		// ----- 5
+		// TODO: implement get "streamName" and "streamID" by ip intercom
 		//streamName := 8
+		streamId := 8
 
-		// 3
+		// ----- 6
+		frsResp, err := utils.GetBestQuality(streamId, now)
+		if err != nil {
+			h.logger.Debug("FRS GetBestQuality", "err", err)
+		} else if frsResp != nil {
+			h.logger.Debug("FRS GetBestQuality OK", "screenshot", frsResp.Data.Screenshot)
+		} else {
+			h.logger.Debug("FRS GetBestQuality no frame", "err", err)
+		}
 
 	}
 
@@ -222,7 +243,7 @@ func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
 		"Content-Type": "application/json",
 	}
 
-	_, err := utils.SendPostRequest(url, headers, payload)
+	_, _, err := utils.SendPostRequest(url, headers, payload)
 	if err != nil {
 		return err
 	}

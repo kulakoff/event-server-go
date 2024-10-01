@@ -52,8 +52,9 @@ func main() {
 	qtechServer := syslog_custom.New(cfg.Hw.Qtech.Port, "Qtech", logger, qtechHandler)
 	go qtechServer.Start()
 
-	test.Draft()
+	//test.Draft()
 	//fmt.Println(time.Now().Unix())
+	test.GetEvent()
 
 	// Block main thread
 	select {}
