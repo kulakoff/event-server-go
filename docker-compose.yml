@@ -13,7 +13,7 @@ services:
 
   mongo:
     container_name: "rbt_db_mongo_${RBT_INSTANCE}"
-    image: mongo:latest
+    image: mongo:8
     ports:
       - "${RBT_MONGO_PORT}"
     environment:

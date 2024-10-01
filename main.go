@@ -5,7 +5,6 @@ import (
 	"github.com/kulakoff/event-server-go/internal/handlers"
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
-	"github.com/kulakoff/event-server-go/internal/test"
 	"log/slog"
 	"os"
 )
@@ -54,7 +53,7 @@ func main() {
 
 	//test.Draft()
 	//fmt.Println(time.Now().Unix())
-	test.GetEvent()
+	//test.GetEvent()
 
 	// Block main thread
 	select {}

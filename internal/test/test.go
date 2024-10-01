@@ -71,7 +71,7 @@ func TestTime() {
 func GetEvent() {
 	streamId := 8
 	timeStr := "2024-10-01 14:44:44"
-	now, _ := time.Parse("2006-01-02 15:04:05", timeStr)
+	now, _ := time.Parse(time.DateTime, timeStr)
 	frsResp, err := utils.GetBestQuality(streamId, now)
 	if err != nil {
 		slog.Info("FRS GetBestQuality", "err", err)

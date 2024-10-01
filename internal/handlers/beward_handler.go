@@ -35,6 +35,7 @@ func NewBewardHandler(logger *slog.Logger, filters []string, storage *storage.Cl
 		logger:    logger,
 		spamWords: filters,
 		storage:   storage,
+		fsFiles:   mongo,
 	}
 }
 
@@ -48,15 +49,6 @@ func (h *BewardHandler) FilterMessage(message string) bool {
 	}
 	return false
 }
-
-// node examle
-//// Opening a door by RFID key
-//if (msg.includes("Opening door by RFID") || msg.includes("Opening door by external RFID")) {
-//const rfid = msg.match(/\b([0-9A-Fa-f]{14})\b/g)?.[0] || null;
-//const isExternalReader = msg.includes('external') || rfid && rfid[6] === '0' && rfid[7] === '0';
-//const door = isExternalReader ? 1 : 0;
-//await API.openDoor({date: now, ip: host, door, detail: rfid, by: "rfid"});
-//}
 
 // ExtractRFIDKey parse RFID key from message
 func (h *BewardHandler) ExtractRFIDKey(message string) string {
@@ -201,9 +193,10 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		// TODO: implement get "streamName" and "streamID" by ip intercom
 		//streamName := 8
 		streamId := 8
+		testTimestamp, _ := time.Parse(time.DateTime, "2024-10-01 14:44:44")
 
 		// ----- 6
-		frsResp, err := utils.GetBestQuality(streamId, now)
+		frsResp, err := utils.GetBestQuality(streamId, testTimestamp)
 		if err != nil {
 			h.logger.Debug("FRS GetBestQuality", "err", err)
 		} else if frsResp != nil {
@@ -211,6 +204,33 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		} else {
 			h.logger.Debug("FRS GetBestQuality no frame", "err", err)
 		}
+		// ----- 7 TODO skip
+		// ----- 8
+
+		// test | replace hostname in url
+		var imageUrl string
+		if frsResp != nil {
+			imageUrl = frsResp.Data.Screenshot
+		}
+		imageUrl = strings.Replace(imageUrl, "localhost", "rbt-demo.lanta.me", -1)
+
+		metadata := map[string]interface{}{
+			"contentType": "image/jpg",
+			"expire":      int32(testTimestamp.Add(time.Hour * 24 * 30 * 6).Unix()),
+		}
+
+		// download file from FRS response
+		screenShot, err := utils.DownloadFile(imageUrl)
+		if err != nil {
+			h.logger.Debug("FRS DownloadFile", "err", err)
+		}
+
+		// save data to MongoDb
+		fileId, err := h.fsFiles.SaveFile("camshot", metadata, screenShot)
+		if err != nil {
+			h.logger.Debug("MongoDB SaveFile", "err", err)
+		}
+		h.logger.Debug("MongoDB SaveFile", "fileId", fileId)
 
 	}
 

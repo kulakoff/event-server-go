@@ -42,6 +42,7 @@ func NewMongoDb(logger *slog.Logger, mongoDbConfig *config.MongoDbConfig) (*Mong
 }
 
 func (m *MongoHandler) SaveFile(filename string, metadata map[string]interface{}, filedata []byte) (primitive.ObjectID, error) {
+	// TODO: files.md5 is deprecated. add  md5 hash to metadata
 	bucket, err := gridfs.NewBucket(m.db)
 	if err != nil {
 		return primitive.NilObjectID, fmt.Errorf("failed to create GRIDFS bucket: %w", err)
