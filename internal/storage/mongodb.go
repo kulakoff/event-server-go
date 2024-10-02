@@ -41,25 +41,26 @@ func NewMongoDb(logger *slog.Logger, mongoDbConfig *config.MongoDbConfig) (*Mong
 	}, nil
 }
 
-func (m *MongoHandler) SaveFile(filename string, metadata map[string]interface{}, filedata []byte) (primitive.ObjectID, error) {
+func (m *MongoHandler) SaveFile(filename string, metadata map[string]interface{}, filedata []byte) (string, error) {
 	// TODO: files.md5 is deprecated. add  md5 hash to metadata
 	bucket, err := gridfs.NewBucket(m.db)
 	if err != nil {
-		return primitive.NilObjectID, fmt.Errorf("failed to create GRIDFS bucket: %w", err)
+		return "", fmt.Errorf("failed to create GRIDFS bucket: %w", err)
 	}
 
 	uploadOptions := options.GridFSUpload().SetMetadata(metadata)
 	uploadStream, err := bucket.OpenUploadStream(filename, uploadOptions)
 	if err != nil {
-		return primitive.NilObjectID, fmt.Errorf("failed to open upload stream: %w", err)
+		return "", fmt.Errorf("failed to open upload stream: %w", err)
 	}
 	defer uploadStream.Close()
 
 	_, err = uploadStream.Write(filedata)
 	if err != nil {
-		return primitive.NilObjectID, fmt.Errorf("failed to write file: %w", err)
+		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 	fileId := uploadStream.FileID.(primitive.ObjectID)
+	fileIdHex := fileId.Hex()
 
-	return fileId, nil
+	return fileIdHex, nil
 }
