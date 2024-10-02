@@ -58,3 +58,19 @@ func (c *ClikhouseHandler) SendLog(message SyslogStorageMessage) {
 
 	c.logger.Debug("Message inserted")
 }
+
+func (c *ClikhouseHandler) InsertPlog(plogData map[string]interface{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	query := "INSERT INTO plog FORMAT JSONEachRow"
+
+	err := c.clickhouse.Exec(ctx, query, plogData)
+	if err != nil {
+		c.logger.Error("Failed to insert plog into Clickhouse", "error", err)
+		return err
+	}
+
+	c.logger.Debug("Plog data inserted success")
+	return nil
+}
