@@ -193,7 +193,8 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		// TODO: implement get "streamName" and "streamID" by ip intercom
 		//streamName := 8
 		streamId := 8
-		testTimestamp, _ := time.Parse(time.DateTime, "2024-10-01 14:44:44")
+		fakeTimestamp := "2024-10-02 10:44:15"
+		testTimestamp, _ := time.Parse(time.DateTime, fakeTimestamp)
 
 		// ----- 6
 		frsResp, err := utils.GetBestQuality(streamId, testTimestamp)
@@ -232,6 +233,10 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		}
 		h.logger.Debug("MongoDB SaveFile", "fileId", fileId)
 
+		// ----- 9
+
+		fmt.Println("mongo id to GUIDv4 format", utils.ToGUIDv4(fileId))
+
 	}
 
 	if strings.Contains(message.Message, "door button pressed") {
@@ -257,7 +262,6 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
 	//url := "http://172.28.0.2/internal/actions/openDoor"
 	url := "https://webhook.site/55437bdc-ee94-48d1-b295-22a9f164b610/openDoor"
-	fmt.Println(payload)
 
 	headers := map[string]string{
 		"Content-Type": "application/json",
