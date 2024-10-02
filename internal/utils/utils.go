@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -124,4 +125,25 @@ func SaveFile(fileName string, data []byte) error {
 	}
 
 	return nil
+}
+
+// ToGUIDv4 - convert MongoDb ObjectId to GUIDv4 string
+func ToGUIDv4(objectId string) string {
+	// add prefix
+	uuid := "10001000" + objectId
+
+	// string to UUID v4
+	return fmt.Sprintf("%s-%s-%s-%s-%s",
+		uuid[0:8], uuid[8:12], uuid[12:16], uuid[16:20], uuid[20:])
+}
+
+// FromGUIDv4 - convert GUIDv4 string to MongoDb ObjectId
+func FromGUIDv4(guid string) (string, error) {
+	uuid := strings.ReplaceAll(guid, "-", "")
+
+	if len(uuid) != 32 {
+		return "", fmt.Errorf("invalid GUID format")
+	}
+
+	return guid[8:], nil
 }
