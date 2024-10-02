@@ -5,7 +5,7 @@
   "clickhouse": {
     "host": "172.29.10.7",
     "port": 9000,
-    "database": "dev",
+    "database": "default",
     "username": "default",
     "password": "qwertyuiop"
   },

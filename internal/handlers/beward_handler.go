@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"github.com/kulakoff/event-server-go/internal/utils"
@@ -192,8 +193,8 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		// ----- 5
 		// TODO: implement get "streamName" and "streamID" by ip intercom
 		//streamName := 8
-		streamId := 8
-		fakeTimestamp := "2024-10-02 10:44:15"
+		streamId := 8                          // FIXME: change fake data
+		fakeTimestamp := "2024-10-02 10:44:15" // FIXME: change fake data
 		testTimestamp, _ := time.Parse(time.DateTime, fakeTimestamp)
 
 		// ----- 6
@@ -234,8 +235,40 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		h.logger.Debug("MongoDB SaveFile", "fileId", fileId)
 
 		// ----- 9
+		imageGUIDv4 := utils.ToGUIDv4(fileId)
+		eventGUIDv4 := uuid.New().String()
+		flatId := 20 // FIXME: change fake data
+		plogData := map[string]interface{}{
+			"date":       int32(now.Unix()),
+			"event_uuid": eventGUIDv4,
+			"hidden":     0,
+			"image_id":   imageGUIDv4,
+			"flat_id":    flatId,
+			"domophone": map[string]interface{}{
+				"camera_id":             8,
+				"domophone_description": "✅ Подъезд Beward",
+				"domophone_id":          6,
+				"domophone_output":      0,
+				"entrance_id":           23,
+				"house_id":              11,
+			},
+			"event":  5,
+			"opened": 1,
+			"face": map[string]interface{}{
+				"faceId": "17",
+				"height": 204,
+				"left":   529,
+				"top":    225,
+				"width":  160,
+			},
+			"rfid":    "",
+			"code":    "",
+			"phones":  map[string]interface{}{"user_phone": ""},
+			"preview": 2,
+		}
 
-		fmt.Println("mongo id to GUIDv4 format", utils.ToGUIDv4(fileId))
+		fmt.Println(plogData)
+		h.storage.InsertPlog(plogData)
 
 	}
 
