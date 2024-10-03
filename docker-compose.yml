@@ -43,7 +43,7 @@ services:
 
   clickhouse_server:
     container_name: "rbt_db_clickhouse_${RBT_INSTANCE}"
-    image: clickhouse/clickhouse-server
+    image: clickhouse/clickhouse-server:24
     ports:
       - "8123"
       - "9004"

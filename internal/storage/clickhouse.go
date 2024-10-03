@@ -61,7 +61,7 @@ func (c *ClikhouseHandler) SendLog(message SyslogStorageMessage) {
 }
 
 func (c *ClikhouseHandler) InsertPlog(plogData string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
 	query := "INSERT INTO plog FORMAT JSONEachRow"
