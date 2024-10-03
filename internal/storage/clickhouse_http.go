@@ -2,74 +2,63 @@ package storage
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
+	"github.com/kulakoff/event-server-go/internal/config"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
 )
 
 type ClickhouseClientHttp struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	Database string
+	logger     *slog.Logger
+	httpClient *http.Client
+	config     *config.ClickhouseConfig
 }
 
-func NewClickhouseClientHttp(host string, port int, username, password, database string) *ClickhouseClientHttp {
+func NewClickhouseClientHttp(logger *slog.Logger, config *config.ClickhouseConfig) (*ClickhouseClientHttp, error) {
+	clickhouseUrl := fmt.Sprintf("http://%s:%d", config.Host, config.Port)
+	logger.Info("Clickhouse HTTP connection established", "url", clickhouseUrl)
+
+	client := &http.Client{
+		Timeout: time.Second * 5,
+	}
+
 	return &ClickhouseClientHttp{
-		Host:     host,
-		Port:     port,
-		Username: username,
-		Password: password,
-		Database: database,
-	}
+		logger:     logger,
+		httpClient: client,
+		config:     config,
+	}, nil
 }
 
-func (c *ClickhouseClientHttp) Insert(table string, data []map[string]interface{}) (bool, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
+func (c *ClickhouseClientHttp) Insert(table, data string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 
-	// Prepare the data in JSONEachRow format
-	var requestBody bytes.Buffer
-	for _, line := range data {
-		jsonLine, err := json.Marshal(line)
-		if err != nil {
-			return false, fmt.Errorf("failed to marshal json: %w", err)
-		}
-		requestBody.Write(jsonLine)
-		requestBody.WriteString("\n")
+	clickhouseUrl := fmt.Sprintf("http://%s:%d", c.config.Host, c.config.Port)
+	query := fmt.Sprintf("INSERT INTO %s.%s FORMAT JSONEachRow", c.config.Database, table)
+	queryUrl := fmt.Sprintf("%s/?async_insert=1&wait_for_async_insert=0&query=%s", clickhouseUrl, url.QueryEscape(query))
+	req, err := http.NewRequestWithContext(ctx, "POST", queryUrl, bytes.NewBuffer([]byte(data)))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Create the query string
-	query := fmt.Sprintf("INSERT INTO %s.%s FORMAT JSONEachRow", c.Database, table)
-	encodedQuery := url.QueryEscape(query)
+	req.SetBasicAuth(c.config.Username, c.config.Password)
+	req.Header.Set("Content-Type", "application/json")
 
-	// Construct the full URL
-	chUrl := fmt.Sprintf("http://%s:%d/?async_insert=1&wait_for_async_insert=0&query=%s", c.Host, c.Port, encodedQuery)
-
-	// Create the request
-	req, err := http.NewRequest("POST", chUrl, &requestBody)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return false, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add headers
-	req.Header.Set("Content-Type", "text/plain; charset=UTF-8")
-	req.Header.Set("X-ClickHouse-User", c.Username)
-	req.Header.Set("X-ClickHouse-Key", c.Password)
-
-	// Send the request
-	resp, err := client.Do(req)
-	if err != nil {
-		return false, fmt.Errorf("failed to send request: %w", err)
+		c.logger.Error("Failed to send request to Clickhouse", "error", err)
+		return err
 	}
 	defer resp.Body.Close()
 
-	// Check for ClickHouse errors in the response headers
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("ClickHouse error, status code: %d", resp.StatusCode)
+		c.logger.Error("Clickhouse returned non-OK status", "status", resp.StatusCode)
+		return fmt.Errorf("non-OK HTTP status: %s", resp.Status)
 	}
 
-	return true, nil
+	c.logger.Debug("Data inserted success to Clickhouse", "table", table)
+	return nil
 }

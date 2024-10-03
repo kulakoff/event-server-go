@@ -25,6 +25,7 @@ type SyslogStorageMessage struct {
 
 func NewClickhouse(logger *slog.Logger, config *config.ClickhouseConfig) (*ClikhouseHandler, error) {
 	dsn := config.Host + ":" + strconv.Itoa(config.Port)
+	fmt.Println(dsn)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{dsn},
 		Auth: clickhouse.Auth{
