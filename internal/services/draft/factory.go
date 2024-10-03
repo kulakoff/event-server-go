@@ -1,4 +1,4 @@
-package services
+package draft
 
 import (
 	"github.com/kulakoff/event-server-go/internal/utils"

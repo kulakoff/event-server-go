@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/kulakoff/event-server-go/internal/storage"
@@ -49,16 +50,6 @@ func (h *BewardHandler) FilterMessage(message string) bool {
 		}
 	}
 	return false
-}
-
-// ExtractRFIDKey parse RFID key from message
-func (h *BewardHandler) ExtractRFIDKey(message string) string {
-	rfidRegex := regexp.MustCompile(`\b([0-9A-Fa-f]{14})\b`)
-	match := rfidRegex.FindStringSubmatch(message)
-	if len(match) > 1 {
-		return match[1]
-	}
-	return ""
 }
 
 // HandleMessage processes Beward-specific messages
@@ -239,36 +230,58 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		eventGUIDv4 := uuid.New().String()
 		flatId := 20 // FIXME: change fake data
 		plogData := map[string]interface{}{
-			"date":       int32(now.Unix()),
+			"date":       1727885547,
 			"event_uuid": eventGUIDv4,
 			"hidden":     0,
-			"image_id":   imageGUIDv4,
+			"image_uuid": imageGUIDv4,
 			"flat_id":    flatId,
-			"domophone": map[string]interface{}{
-				"camera_id":             8,
-				"domophone_description": "✅ Подъезд Beward",
-				"domophone_id":          6,
-				"domophone_output":      0,
-				"entrance_id":           23,
-				"house_id":              11,
-			},
-			"event":  5,
-			"opened": 1,
-			"face": map[string]interface{}{
-				"faceId": "17",
-				"height": 204,
-				"left":   529,
-				"top":    225,
-				"width":  160,
-			},
-			"rfid":    "",
-			"code":    "",
-			"phones":  map[string]interface{}{"user_phone": ""},
-			"preview": 2,
+			"domophone":  `{"camera_id": 8, "domophone_description": "✅ Подъезд Beward", "domophone_id": 6, "domophone_output": 0, "entrance_id": 23, "house_id": 11}`,
+			"event":      5,
+			"opened":     1,
+			"face":       `{"faceId": "17", "height": 192, "left": 575, "top": 306, "width": 155}`,
+			"rfid":       "",
+			"code":       "",
+			"phones":     `{"user_phone": ""}`,
+			"preview":    2,
+		}
+		//plogData := map[string]interface{}{
+		//	"date":       int32(now.Unix()),
+		//	"event_uuid": eventGUIDv4,
+		//	"hidden":     0,
+		//	"image_id":   imageGUIDv4,
+		//	"flat_id":    flatId,
+		//	"domophone": map[string]interface{}{
+		//		"camera_id":             8,
+		//		"domophone_description": "✅ Подъезд Beward",
+		//		"domophone_id":          6,
+		//		"domophone_output":      0,
+		//		"entrance_id":           23,
+		//		"house_id":              11,
+		//	},
+		//	"event":  5,
+		//	"opened": 1,
+		//	"face": map[string]interface{}{
+		//		"faceId": "17",
+		//		"height": 204,
+		//		"left":   529,
+		//		"top":    225,
+		//		"width":  160,
+		//	},
+		//	"rfid":    "",
+		//	"code":    "",
+		//	"phones":  map[string]interface{}{"user_phone": ""},
+		//	"preview": 2,
+		//}
+		plogDataString, err := json.Marshal(plogData)
+		if err != nil {
+			h.logger.Debug("Failed marshal JSON")
 		}
 
-		fmt.Println(plogData)
-		h.storage.InsertPlog(plogData)
+		fmt.Println(string(plogDataString))
+		err = h.storage.InsertPlog(string(plogDataString))
+		if err != nil {
+			fmt.Println("INSERT ERR", err)
+		}
 
 	}
 
@@ -289,6 +302,16 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	}
 
 	// Tracks calls
+}
+
+// ExtractRFIDKey parse RFID key from message
+func (h *BewardHandler) ExtractRFIDKey(message string) string {
+	rfidRegex := regexp.MustCompile(`\b([0-9A-Fa-f]{14})\b`)
+	match := rfidRegex.FindStringSubmatch(message)
+	if len(match) > 1 {
+		return match[1]
+	}
+	return ""
 }
 
 // APICallToRBT Update RFID usage timestamp

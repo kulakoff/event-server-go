@@ -16,6 +16,8 @@ type SyslogServer struct {
 	handler MessageHandler
 }
 
+// TODO: add DBD syslog message format
+
 type SyslogMessage struct {
 	Format         string    `json:"format"` // custom field "rfc5424" or "BSD" format
 	Priority       int       `json:"priority"`

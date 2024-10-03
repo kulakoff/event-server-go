@@ -42,6 +42,7 @@ func NewClickhouse(logger *slog.Logger, config *config.ClickhouseConfig) (*Clikh
 		return nil, fmt.Errorf("failed ping clickhouse dsn %s: %w ", dsn, err)
 	}
 
+	logger.Info("Connected to Clickhouse")
 	return &ClikhouseHandler{logger: logger, clickhouse: conn}, nil
 }
 
@@ -59,7 +60,7 @@ func (c *ClikhouseHandler) SendLog(message SyslogStorageMessage) {
 	c.logger.Debug("Message inserted")
 }
 
-func (c *ClikhouseHandler) InsertPlog(plogData map[string]interface{}) error {
+func (c *ClikhouseHandler) InsertPlog(plogData string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
