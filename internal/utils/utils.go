@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -146,4 +147,14 @@ func FromGUIDv4(guid string) (string, error) {
 	}
 
 	return guid[8:], nil
+}
+
+// ExtractRFIDKey - extract RFID key from syslog message
+func ExtractRFIDKey(message string) string {
+	rfidRegex := regexp.MustCompile(`\b([0-9A-Fa-f]{14})\b`)
+	match := rfidRegex.FindStringSubmatch(message)
+	if len(match) > 1 {
+		return match[1]
+	}
+	return ""
 }

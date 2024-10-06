@@ -9,7 +9,6 @@ import (
 	"github.com/kulakoff/event-server-go/internal/utils"
 	"log/slog"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -147,7 +146,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		}
 
 		// ----- 2
-		rfidKey := h.ExtractRFIDKey(message.Message)
+		rfidKey := utils.ExtractRFIDKey(message.Message)
 		if rfidKey != "" {
 			h.logger.Debug("RFID key found", "srcIP", srcIP, "host", message.HostName, "rfid", rfidKey)
 		} else {
@@ -306,16 +305,6 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	}
 
 	// Tracks calls
-}
-
-// ExtractRFIDKey parse RFID key from message
-func (h *BewardHandler) ExtractRFIDKey(message string) string {
-	rfidRegex := regexp.MustCompile(`\b([0-9A-Fa-f]{14})\b`)
-	match := rfidRegex.FindStringSubmatch(message)
-	if len(match) > 1 {
-		return match[1]
-	}
-	return ""
 }
 
 // APICallToRBT Update RFID usage timestamp

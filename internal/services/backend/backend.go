@@ -35,3 +35,7 @@ func APICallToRBT(payload OpenDoorMsg) error {
 	slog.Debug("Successfully sent OpenDoorMsg")
 	return nil
 }
+
+func draft() {
+
+}
