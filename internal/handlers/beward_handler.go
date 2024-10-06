@@ -19,7 +19,7 @@ import (
 type BewardHandler struct {
 	logger    *slog.Logger
 	spamWords []string
-	storage   *storage.ClikhouseHandler
+	storage   *storage.ClickhouseHttpClient
 	fsFiles   *storage.MongoHandler
 }
 
@@ -32,7 +32,7 @@ type OpenDoorMsg struct {
 }
 
 // NewBewardHandler creates a new BewardHandler
-func NewBewardHandler(logger *slog.Logger, filters []string, storage *storage.ClikhouseHandler, mongo *storage.MongoHandler) *BewardHandler {
+func NewBewardHandler(logger *slog.Logger, filters []string, storage *storage.ClickhouseHttpClient, mongo *storage.MongoHandler) *BewardHandler {
 	return &BewardHandler{
 		logger:    logger,
 		spamWords: filters,
@@ -89,9 +89,13 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		Unit:  "beward",
 		Msg:   message.Message,
 	}
+	storageMessageJson, err := json.Marshal(storageMessage)
+	if err != nil {
+		h.logger.Warn("Failed to marshal storage message", "error", err)
+	}
 
 	// ----- send log to remote storage
-	h.storage.SendLog(storageMessage)
+	h.storage.Insert("syslog", string(storageMessageJson))
 
 	// --------------------
 	// Implement Beward-specific message processing here
@@ -278,7 +282,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		}
 
 		fmt.Println(string(plogDataString))
-		err = h.storage.InsertPlog(string(plogDataString))
+		err = h.storage.Insert("plog", string(plogDataString))
 		if err != nil {
 			fmt.Println("INSERT ERR", err)
 		}
