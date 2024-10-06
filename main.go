@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	//startServer()
+	startServer()
 	todo2()
 }
 
@@ -33,7 +33,7 @@ func startServer() {
 
 	// clickhouse init
 	chDsn := cfg.Clickhouse
-	ch, err := storage.NewClickhouse(logger, &chDsn)
+	ch, err := storage.NewClickhouseHttpClient(logger, &chDsn)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
@@ -142,7 +142,7 @@ func todo2() {
 	}
 
 	// clickhouse init
-	chClient, err := storage.NewClickhouseClientHttp(logger, &cfg.Clickhouse)
+	chClient, err := storage.NewClickhouseHttpClient(logger, &cfg.Clickhouse)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
