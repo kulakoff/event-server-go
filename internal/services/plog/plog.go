@@ -67,6 +67,12 @@ func ProcessImage(data *StreamData) ([]byte, error) {
 
 		file, err := os.ReadFile(imageFileName)
 
+		err = screenshot.Cleanup(videoFileName, imageFileName)
+		if err != nil {
+			slog.Debug("FRS Cleanup", "err", err)
+			return nil, err
+		}
+
 		return file, nil
 	}
 }

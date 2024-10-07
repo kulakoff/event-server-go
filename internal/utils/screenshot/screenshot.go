@@ -30,3 +30,12 @@ func ExtractFrame(videoFile, outputImage string) error {
 	}
 	return nil
 }
+
+func Cleanup(files ...string) error {
+	for _, file := range files {
+		if err := os.Remove(file); err != nil {
+			return fmt.Errorf("error deleting file %s: %v", file, err)
+		}
+	}
+	return nil
+}
