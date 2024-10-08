@@ -36,6 +36,10 @@ func APICallToRBT(payload OpenDoorMsg) error {
 	return nil
 }
 
-func draft() {
-
+func GetStremByIp(ip string) (int32, error) {
+	//FIXME: refactor stub
+	if ip == "192.168.13.152" {
+		return 8, nil
+	}
+	return 0, nil
 }

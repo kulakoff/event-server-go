@@ -15,8 +15,8 @@ import (
 )
 
 func main() {
-	startServer()
-	todo2()
+	//startServer()
+	//todo2()
 }
 
 // main logic

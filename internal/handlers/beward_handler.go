@@ -101,7 +101,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 
 	// Track motion detection
 	if strings.Contains(message.Message, "SS_MAINAPI_ReportAlarmHappen") {
-		h.HandleMotionDetection(&now, host, message.Message)
+		h.HandleMotionDetection(&now, host, true)
 		/**
 		TODO:
 			- process motion detect start logic
@@ -109,7 +109,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		*/
 	}
 	if strings.Contains(message.Message, "SS_MAINAPI_ReportAlarmFinish") {
-		h.HandleMotionDetection(&now, host, message.Message)
+		h.HandleMotionDetection(&now, host, false)
 		/**
 		TODO:
 			- process motion detect stop logic
@@ -152,9 +152,10 @@ func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
 	return nil
 }
 
-func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host, message string) {
+func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host string, motionActive bool) {
 	// implement motion detection logic
-	h.logger.Debug("Motion detect process", "host", host, "message", message)
+	// get streamId by intercom IP and call to API FRS. message motion start or stop
+	h.logger.Debug("Motion detect process", "host", host, "motionActive", motionActive)
 }
 
 func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message string) {
