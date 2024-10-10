@@ -218,7 +218,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		Date:   strconv.FormatInt(timestamp.Unix(), 10),
 		IP:     host,
 		SubId:  "",
-		Event:  3,
+		Event:  Event.OpenByCode,
 		Detail: rfidKey,
 	}
 	err := h.APICallToRBT(&rbtMessage)
