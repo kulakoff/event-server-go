@@ -17,6 +17,7 @@ type StreamData struct {
 	Url        string    `json:"url"`
 }
 
+// ProcessImage - get image from FRS service or DVR
 func ProcessImage(data *StreamData) ([]byte, error) {
 	/**
 	TODO:
@@ -42,6 +43,8 @@ func ProcessImage(data *StreamData) ([]byte, error) {
 			slog.Debug("FRS DownloadFile", "err", err)
 			return nil, err
 		}
+
+		slog.Debug("Process image from FRS success")
 		return screenShot, nil
 	} else {
 		// GET screenshot from DVR
@@ -73,6 +76,7 @@ func ProcessImage(data *StreamData) ([]byte, error) {
 			return nil, err
 		}
 
+		slog.Debug("Process image from DVR success", "file", string(file))
 		return file, nil
 	}
 }
