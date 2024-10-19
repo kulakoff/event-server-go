@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/kulakoff/event-server-go/internal/services/backend"
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"github.com/kulakoff/event-server-go/internal/utils"
@@ -228,13 +229,17 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 
 	// ----- 5
 	// TODO: implement get "streamName" and "streamID" by ip intercom
-	//streamName := 8
-	streamId := 8                          // FIXME: change fake data
+
+	stream, err := backend.GetStremByIp(host)
+	if err != nil {
+		h.logger.Error("APICallToRBT", "err", err)
+	}
 	fakeTimestamp := "2024-10-02 10:44:15" // FIXME: change fake data
+	//fakeTimestamp = strconv.FormatInt(timestamp.Unix(), 10)
 	testTimestamp, _ := time.Parse(time.DateTime, fakeTimestamp)
 
 	// ----- 6
-	frsResp, err := utils.GetBestQuality(streamId, testTimestamp)
+	frsResp, err := utils.GetBestQuality(stream.ID, testTimestamp)
 	if err != nil {
 		h.logger.Debug("FRS GetBestQuality", "err", err)
 	} else if frsResp != nil {
@@ -271,24 +276,36 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	h.logger.Debug("MongoDB SaveFile", "fileId", fileId)
 
 	// ----- 9
-	imageGUIDv4 := utils.ToGUIDv4(fileId)
-	eventGUIDv4 := uuid.New().String()
-	flatId := 20 // FIXME: change fake data
+	eventGUIDv4 := uuid.New().String()    // generate event id format GUIDv4
+	imageGUIDv4 := utils.ToGUIDv4(fileId) // mongo file id to GUIDv4
+	flatId, err := backend.GetFlatGyRFID(rfidKey)
+	if err != nil {
+		h.logger.Debug("Failed fond flat by key", "err", err)
+	}
+
 	plogData := map[string]interface{}{
-		"date":       1727885547,
+		"date":       timestamp,
 		"event_uuid": eventGUIDv4,
 		"hidden":     0,
 		"image_uuid": imageGUIDv4,
 		"flat_id":    flatId,
-		"domophone":  `{"camera_id": 8, "domophone_description": "✅ Подъезд Beward", "domophone_id": 6, "domophone_output": 0, "entrance_id": 23, "house_id": 11}`,
-		"event":      5,
-		"opened":     1,
-		"face":       `{"faceId": "17", "height": 192, "left": 575, "top": 306, "width": 155}`,
-		"rfid":       "",
-		"code":       "",
-		"phones":     `{"user_phone": ""}`,
-		"preview":    2,
+		"domophone": map[string]interface{}{
+			"camera_id":             8,
+			"domophone_description": "✅ Подъезд Beward",
+			"domophone_id":          6,
+			"domophone_output":      0,
+			"entrance_id":           23,
+			"house_id":              11,
+		},
+		"event":   Event.OpenByKey,
+		"opened":  1, // bool
+		"face":    "{}",
+		"rfid":    rfidKey,
+		"code":    "",
+		"phones":  "{}",
+		"preview": 1, // 0 no image, 1 - image from DVR, 2 - image from FRS
 	}
+
 	//plogData := map[string]interface{}{
 	//	"date":       int32(now.Unix()),
 	//	"event_uuid": eventGUIDv4,
@@ -317,12 +334,13 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	//	"phones":  map[string]interface{}{"user_phone": ""},
 	//	"preview": 2,
 	//}
+
 	plogDataString, err := json.Marshal(plogData)
 	if err != nil {
 		h.logger.Debug("Failed marshal JSON")
 	}
 
-	fmt.Println(string(plogDataString))
+	fmt.Println(string(plogDataString)) // FIXME: remove debug
 	err = h.storage.Insert("plog", string(plogDataString))
 	if err != nil {
 		fmt.Println("INSERT ERR", err)

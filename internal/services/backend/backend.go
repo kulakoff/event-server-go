@@ -12,6 +12,10 @@ type OpenDoorMsg struct {
 	Event  int    `json:"event"`
 	Detail string `json:"detail"`
 }
+type Stream struct {
+	ID  int
+	Url string
+}
 
 func stub() map[string]interface{} {
 	return map[string]interface{}{
@@ -36,10 +40,41 @@ func APICallToRBT(payload OpenDoorMsg) error {
 	return nil
 }
 
-func GetStremByIp(ip string) (int32, error) {
-	//FIXME: refactor stub
+func GetStremByIp(ip string) (*Stream, error) {
+	//TODO implement this method
+
+	//FIXME: stub stream
 	if ip == "192.168.13.152" {
-		return 8, nil
+		return &Stream{ID: 8, Url: "https://dvr-example.com/stream-name/index.m3u8"}, nil
 	}
+
+	return nil, nil
+}
+
+func GetFlatGyRFID(key string) (int, error) {
+	//TODO implement this method
+
+	//FIXME: stub flat
+	if key == "00000075BC01AD," {
+		return 20, nil
+	}
+
 	return 0, nil
+}
+
+func GetDomophone(ip string) (interface{}, error) {
+	/**
+	TODO: implement me
+	Example response
+	"domophone": map[string]interface{}{
+			"camera_id":             8,
+			"domophone_description": "✅ Подъезд Beward",
+			"domophone_id":          6,
+			"domophone_output":      0,
+			"entrance_id":           23,
+			"house_id":              11,
+		},
+	*/
+
+	return nil, nil
 }
