@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/kulakoff/event-server-go/internal/services/backend"
+	"github.com/kulakoff/event-server-go/internal/services/frs"
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"github.com/kulakoff/event-server-go/internal/utils"
@@ -157,6 +158,25 @@ func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host string,
 	// implement motion detection logic
 	// get streamId by intercom IP and call to API FRS. message motion start or stop
 	h.logger.Debug("Motion detect process", "host", host, "motionActive", motionActive)
+	/**
+	TODO:
+		1 get stream by ip
+		2 check FRS enable, not eq "-"
+		3 send req to FRS service
+	*/
+	stream, err := backend.GetStremByIp(host)
+	if err != nil {
+		h.logger.Warn("Failed to get stream", "error", err)
+	}
+
+	// check if FRS enable
+	if stream.UrlFRS != "-" {
+		err := frs.MotionDetection(stream.ID, motionActive, stream.UrlFRS)
+		if err != nil {
+			h.logger.Warn("Failed to send motion detect to FRS service", "error", err)
+			return
+		}
+	}
 }
 
 func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message string) {

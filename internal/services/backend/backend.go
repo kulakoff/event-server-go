@@ -13,8 +13,9 @@ type OpenDoorMsg struct {
 	Detail string `json:"detail"`
 }
 type Stream struct {
-	ID  int
-	Url string
+	ID     int
+	UrlDVR string
+	UrlFRS string
 }
 
 func stub() map[string]interface{} {
@@ -45,7 +46,11 @@ func GetStremByIp(ip string) (*Stream, error) {
 
 	//FIXME: stub stream
 	if ip == "192.168.13.152" {
-		return &Stream{ID: 8, Url: "https://dvr-example.com/stream-name/index.m3u8"}, nil
+		return &Stream{
+			ID:     8,
+			UrlDVR: "https://dvr-example.com/stream-name/index.m3u8",
+			UrlFRS: "http://localhost:9051",
+		}, nil
 	}
 
 	return nil, nil

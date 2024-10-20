@@ -8,7 +8,7 @@ import (
 )
 
 // FrsUrl FIXME: refactor url dummy
-const FrsUrl = "http://localhost:9051"
+//const FrsUrl = "http://localhost:9051"
 
 type GetBestQualityData struct {
 	Height     int    `json:"height"`
@@ -67,8 +67,8 @@ func GetBestQuality(streamId int, timestamp time.Time) (*GetBestQualityResponse,
 }
 
 // MotionDetection - send motion start or stop message to RRS service
-func MotionDetection(streamId int, motionActive bool) error {
-	url := FrsUrl + "/api/motionDetection"
+func MotionDetection(streamId int, motionActive bool, frsUrl string) error {
+	url := frsUrl + "/api/motionDetection"
 	var motion string
 	if motionActive {
 		motion = "t"
