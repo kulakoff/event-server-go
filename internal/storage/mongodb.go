@@ -33,7 +33,7 @@ func NewMongoDb(logger *slog.Logger, mongoDbConfig *config.MongoDbConfig) (*Mong
 		return nil, fmt.Errorf("failed to ping MongoDB: %w", err)
 	}
 
-	logger.Info("Connected to MongoDB")
+	logger.Info("Success connection to MongoDB")
 	return &MongoHandler{
 		logger: logger,
 		client: client,
