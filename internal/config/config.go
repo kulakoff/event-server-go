@@ -59,6 +59,7 @@ type SpamFilters struct {
 	Ufanet       []string `json:"ufanet"`
 }
 
+// New parse json config file
 func New(fileName string) (*Config, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
@@ -75,6 +76,7 @@ func New(fileName string) (*Config, error) {
 	return config, nil
 }
 
+// LoadSpamFilters spam words per service
 func LoadSpamFilters(filename string) (*SpamFilters, error) {
 	file, err := os.Open(filename)
 	if err != nil {
