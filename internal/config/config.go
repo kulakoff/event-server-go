@@ -12,6 +12,7 @@ type Config struct {
 	}
 	Clickhouse ClickhouseConfig `json:"clickhouse"`
 	MongoDb    *MongoDbConfig   `json:"mongodb"`
+	Postgres   *PostgresConfig  `json:"postgres"`
 	API        struct {
 		Internal string `json:"internal"`
 	}
@@ -34,6 +35,15 @@ type ClickhouseConfig struct {
 type MongoDbConfig struct {
 	URI      string `json:"uri"`
 	Database string `json:"database"`
+}
+
+type PostgresConfig struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Database string `json:"database"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	//SSLMode  string `json:"sslmode"` // disable or require
 }
 
 type HwConfig struct {

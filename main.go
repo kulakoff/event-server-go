@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	//startServer()
+	startServer()
 	//todo2()
 }
 
@@ -45,6 +45,14 @@ func startServer() {
 		logger.Error("Error init MongoDB", "error", err)
 		os.Exit(1)
 	}
+
+	// postgres init
+	psql, err := storage.NewPSQLStorage(logger, cfg.Postgres)
+	if err != nil {
+		logger.Error("Error init PSQLStorage", "error", err)
+		os.Exit(1)
+	}
+	defer psql.Close()
 
 	// load spam filter
 	spamFilers, err := config.LoadSpamFilters("spamwords.json")
