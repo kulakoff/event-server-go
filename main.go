@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kulakoff/event-server-go/internal/config"
 	"github.com/kulakoff/event-server-go/internal/handlers"
+	"github.com/kulakoff/event-server-go/internal/repository"
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"github.com/kulakoff/event-server-go/internal/utils"
@@ -47,12 +48,15 @@ func startServer() {
 	}
 
 	// postgres init
-	psql, err := storage.NewPSQLStorage(logger, cfg.Postgres)
+	psqlStorage, err := storage.NewPSQLStorage(logger, cfg.Postgres)
 	if err != nil {
 		logger.Error("Error init PSQLStorage", "error", err)
 		os.Exit(1)
 	}
-	defer psql.Close()
+	defer psqlStorage.Close()
+
+	// init postgres storage
+	repo, err := repository.NewPostgresRepository(psqlStorage.DB, logger)
 
 	// load spam filter
 	spamFilers, err := config.LoadSpamFilters("spamwords.json")
@@ -61,12 +65,12 @@ func startServer() {
 	}
 
 	// ----- Beward syslog_custom server
-	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch, mongo)
+	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo)
 	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
 	go bewardServer.Start()
 
 	// ----- Qtech syslog_custom server
-	qtechHandler := handlers.NewQtechHandler(logger, spamFilers.Qtech, ch, mongo)
+	qtechHandler := handlers.NewQtechHandler(logger, spamFilers.Qtech, ch, mongo, repo)
 	qtechServer := syslog_custom.New(cfg.Hw.Qtech.Port, "Qtech", logger, qtechHandler)
 	go qtechServer.Start()
 

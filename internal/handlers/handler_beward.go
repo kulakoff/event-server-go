@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/kulakoff/event-server-go/internal/repository"
 	"github.com/kulakoff/event-server-go/internal/services/backend"
 	"github.com/kulakoff/event-server-go/internal/services/frs"
 	"github.com/kulakoff/event-server-go/internal/storage"
@@ -22,6 +24,7 @@ type BewardHandler struct {
 	spamWords []string
 	storage   *storage.ClickhouseHttpClient
 	fsFiles   *storage.MongoHandler
+	repo      *repository.PostgresRepository
 }
 
 type OpenDoorMsg struct {
@@ -33,16 +36,22 @@ type OpenDoorMsg struct {
 }
 
 // NewBewardHandler creates a new BewardHandler
-func NewBewardHandler(logger *slog.Logger, filters []string, storage *storage.ClickhouseHttpClient, mongo *storage.MongoHandler) *BewardHandler {
+func NewBewardHandler(
+	logger *slog.Logger,
+	filters []string,
+	storage *storage.ClickhouseHttpClient,
+	mongo *storage.MongoHandler,
+	repo *repository.PostgresRepository) *BewardHandler {
 	return &BewardHandler{
 		logger:    logger,
 		spamWords: filters,
 		storage:   storage,
 		fsFiles:   mongo,
+		repo:      repo,
 	}
 }
 
-// FilterMessage skip not informational message
+// FilterMessage skip not informational syslog message
 func (h *BewardHandler) FilterMessage(message string) bool {
 	for _, word := range h.spamWords {
 		//if strings.Contains(strings.ToLower(message), word) {}
@@ -139,7 +148,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 // APICallToRBT Update RFID usage timestamp
 func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
 	//url := "http://172.28.0.2/internal/actions/openDoor"
-	url := "https://webhook.site/55437bdc-ee94-48d1-b295-22a9f164b610/openDoor"
+	url := "https://webhook.site/5e9d4c4d-73eb-44c4-be20-e1886cbea2b4/openDoor"
 
 	headers := map[string]string{
 		"Content-Type": "application/json",
@@ -233,6 +242,15 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		- 4. save image to mongoDb
 		- 5. save plog to clickhouse
 	*/
+
+	// TODO: implement me
+	err := h.repo.UpdateRFIDLastSeen(context.Background(), rfidKey)
+	if err != nil {
+		h.logger.Warn("Failed to update RFID", "error", err)
+		return
+	}
+
+	return
 
 	// ----- 4
 	rbtMessage := OpenDoorMsg{
