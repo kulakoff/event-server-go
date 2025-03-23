@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+type Stream struct {
+	ID     int
+	UrlDVR string
+	UrlFRS string
+}
+
 type PostgresRepository struct {
 	db     *pgxpool.Pool
 	logger *slog.Logger
@@ -30,6 +36,7 @@ func NewPostgresRepository(db *pgxpool.Pool, logger *slog.Logger) (*PostgresRepo
 	}, nil
 }
 
+// UpdateRFIDLastSeen update last usage key
 func (r *PostgresRepository) UpdateRFIDLastSeen(ctx context.Context, rfid string) error {
 	lastSeen := time.Now().Unix()
 
@@ -43,4 +50,30 @@ func (r *PostgresRepository) UpdateRFIDLastSeen(ctx context.Context, rfid string
 	r.logger.Debug("Updated RFID last_seen", "rfid", rfid, "last_seen", lastSeen, "rowsAffected", rowsAffected)
 
 	return nil
+}
+
+func (r *PostgresRepository) GetStreamByIP(ctx context.Context, ip string) (*Stream, error) {
+	// TODO implement me
+	// FIXME: stub stream
+	if ip == "192.168.13.152" {
+		return &Stream{
+			ID:     8,
+			UrlDVR: "https://dvr-example.com/stream-name/index.m3u8",
+			UrlFRS: "http://localhost:9051",
+		}, nil
+	}
+	if ip == "192.168.88.25" {
+		return &Stream{
+			ID:     8,
+			UrlDVR: "https://dvr-example.com/stream-name/index.m3u8",
+			UrlFRS: "https://webhook.site/5c40e512-64c6-49b8-96d0-d6d028f8181f",
+		}, nil
+	}
+
+	return nil, nil
+}
+
+func (r *PostgresRepository) GetFlatByRFID(ctx context.Context, rfid string) (int, error) {
+	// TODO implement me
+	return 0, nil
 }
