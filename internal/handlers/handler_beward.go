@@ -244,7 +244,8 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	*/
 
 	// TODO: implement me
-	err := h.repo.UpdateRFIDLastSeen(context.Background(), rfidKey)
+	// ----- 4
+	err := h.repo.Households.UpdateRFIDLastSeen(context.Background(), rfidKey)
 	if err != nil {
 		h.logger.Warn("Failed to update RFID", "error", err)
 		return
@@ -253,17 +254,17 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	return
 
 	// ----- 4
-	rbtMessage := OpenDoorMsg{
-		Date:   strconv.FormatInt(timestamp.Unix(), 10),
-		IP:     host,
-		SubId:  "",
-		Event:  Event.OpenByCode,
-		Detail: rfidKey,
-	}
-	err := h.APICallToRBT(&rbtMessage)
-	if err != nil {
-		h.logger.Error("APICallToRBT", "err", err)
-	}
+	//rbtMessage := OpenDoorMsg{
+	//	Date:   strconv.FormatInt(timestamp.Unix(), 10),
+	//	IP:     host,
+	//	SubId:  "",
+	//	Event:  Event.OpenByCode,
+	//	Detail: rfidKey,
+	//}
+	//err := h.APICallToRBT(&rbtMessage)
+	//if err != nil {
+	//	h.logger.Error("APICallToRBT", "err", err)
+	//}
 
 	// ----- 5
 	// TODO: implement get "streamName" and "streamID" by ip intercom
