@@ -26,13 +26,12 @@ func NewPostgresRepository(db *pgxpool.Pool, logger *slog.Logger) (*PostgresRepo
 
 	logger.Info("postgres repository initialized")
 
-	cameraRepo := NewCameraRepository(db, logger)
-	householdRepo := NewHouseholdRepository(db, logger)
+	repo := &PostgresRepository{
+		db:     db,
+		logger: logger,
+	}
+	repo.Cameras = NewCameraRepository(repo)
+	repo.Households = NewHouseholdRepository(repo)
 
-	return &PostgresRepository{
-		db:         db,
-		logger:     logger,
-		Cameras:    cameraRepo,
-		Households: householdRepo,
-	}, nil
+	return repo, nil
 }

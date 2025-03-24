@@ -19,12 +19,14 @@ type Stream struct {
 type CameraRepositoryImpl struct {
 	db     *pgxpool.Pool
 	logger *slog.Logger
+	parent *PostgresRepository
 }
 
-func NewCameraRepository(db *pgxpool.Pool, logger *slog.Logger) *CameraRepositoryImpl {
+func NewCameraRepository(parent *PostgresRepository) *CameraRepositoryImpl {
 	return &CameraRepositoryImpl{
-		db:     db,
-		logger: logger,
+		db:     parent.db,
+		logger: parent.logger,
+		parent: parent,
 	}
 }
 

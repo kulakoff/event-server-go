@@ -16,12 +16,14 @@ type HouseHoldRepository interface {
 type HouseholdRepositoryImpl struct {
 	db     *pgxpool.Pool
 	logger *slog.Logger
+	parent *PostgresRepository
 }
 
-func NewHouseholdRepository(db *pgxpool.Pool, logger *slog.Logger) *HouseholdRepositoryImpl {
+func NewHouseholdRepository(parent *PostgresRepository) *HouseholdRepositoryImpl {
 	return &HouseholdRepositoryImpl{
-		db:     db,
-		logger: logger,
+		db:     parent.db,
+		logger: parent.logger,
+		parent: parent,
 	}
 }
 
@@ -45,3 +47,11 @@ func (r *HouseholdRepositoryImpl) GetFlatByRFID(ctx context.Context, rfid string
 	// TODO implement me
 	return 0, nil
 }
+
+func (r *HouseholdRepositoryImpl) GetDomophoneByIP(ctx context.Context, ip string) error {
+	return nil
+}
+
+/**
+получить camera streamId
+*/
