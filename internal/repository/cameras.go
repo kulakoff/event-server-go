@@ -40,7 +40,7 @@ func (r *CameraRepositoryImpl) GetStreamByIP(ctx context.Context, ip string) (*S
 			UrlFRS: "http://localhost:9051",
 		}, nil
 	}
-	if ip == "192.168.88.25" {
+	if ip == "37.235.188.212" {
 		return &Stream{
 			ID:     8,
 			UrlDVR: "https://dvr-example.com/stream-name/index.m3u8",

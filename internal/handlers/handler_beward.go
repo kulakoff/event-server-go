@@ -251,20 +251,13 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		return
 	}
 
+	//domophoneId, _ := h.repo.Households.GetDomophoneByIP(context.Background(), host)
+	/*
+		+ 1 получаем домофон по ip
+		2 полчаем вход (основной или дополнительный)  на основании считывателя
+		3 получаем камеру входа
+	*/
 	return
-
-	// ----- 4
-	//rbtMessage := OpenDoorMsg{
-	//	Date:   strconv.FormatInt(timestamp.Unix(), 10),
-	//	IP:     host,
-	//	SubId:  "",
-	//	Event:  Event.OpenByCode,
-	//	Detail: rfidKey,
-	//}
-	//err := h.APICallToRBT(&rbtMessage)
-	//if err != nil {
-	//	h.logger.Error("APICallToRBT", "err", err)
-	//}
 
 	// ----- 5
 	// TODO: implement get "streamName" and "streamID" by ip intercom

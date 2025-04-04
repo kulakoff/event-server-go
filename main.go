@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -57,6 +58,16 @@ func startServer() {
 
 	// init postgres storage
 	repo, err := repository.NewPostgresRepository(psqlStorage.DB, logger)
+
+	//test
+	dm_ID, _ := repo.Households.GetDomophoneByIP(context.Background(), "37.235.188.212")
+	logger.Debug("test", "demophobeId", dm_ID)
+
+	stream, _ := repo.Cameras.GetStreamByIP(context.Background(), "37.235.188.212")
+	logger.Debug("test", "stream", stream)
+
+	entrace, _ := repo.Households.GetEntrace(context.Background(), dm_ID)
+	logger.Debug("test", "entrace", entrace)
 
 	// load spam filter
 	spamFilers, err := config.LoadSpamFilters("spamwords.json")
