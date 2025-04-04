@@ -16,7 +16,7 @@ type HouseHoldRepository interface {
 	UpdateRFIDLastSeen(ctx context.Context, rfid string) error
 	GetFlatByRFID(ctx context.Context, rfid string) (int, error)
 	GetDomophoneIDByIP(ctx context.Context, ip string) (int, error)
-	GetEntrace(ctx context.Context, domophoneId int) (*models.HouseEntrance, error)
+	GetEntrace(ctx context.Context, domophoneId int, output int) (*models.HouseEntrance, error)
 	GetDomophone(ctx context.Context, by string, ip string) (*models.Domophone, error)
 }
 
@@ -76,7 +76,7 @@ func (r *HouseholdRepositoryImpl) GetDomophoneIDByIP(ctx context.Context, ip str
 	return domophoneID, nil
 }
 
-func (r *HouseholdRepositoryImpl) GetEntrace(ctx context.Context, domophoneId int) (*models.HouseEntrance, error) {
+func (r *HouseholdRepositoryImpl) GetEntrace(ctx context.Context, domophoneId int, output int) (*models.HouseEntrance, error) {
 	r.logger.Debug("Getting entrace by domophoneId")
 	query := `
 			SELECT
@@ -86,10 +86,10 @@ func (r *HouseholdRepositoryImpl) GetEntrace(ctx context.Context, domophoneId in
 				distance, alt_camera_id_1, alt_camera_id_2, alt_camera_id_3,
 				alt_camera_id_4, alt_camera_id_5, alt_camera_id_6, alt_camera_id_7
 			FROM houses_entrances
-			WHERE house_domophone_id = $1
+			WHERE house_domophone_id = $1 AND domophone_output = $2
 `
 	var entrace models.HouseEntrance
-	err := r.db.QueryRow(ctx, query, domophoneId).Scan(
+	err := r.db.QueryRow(ctx, query, domophoneId, output).Scan(
 		&entrace.HouseEntranceID,
 		&entrace.EntranceType,
 		&entrace.Entrance,
