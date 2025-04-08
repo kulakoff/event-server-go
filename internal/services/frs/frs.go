@@ -10,6 +10,8 @@ import (
 // FrsUrl FIXME: refactor url dummy
 //const FrsUrl = "http://localhost:9051"
 
+const FrsSuccesCode = 200 // TODO: replace to 204 code
+
 type GetBestQualityData struct {
 	Height     int    `json:"height"`
 	Top        int    `json:"top"`
@@ -25,8 +27,8 @@ type GetBestQualityResponse struct {
 	Data    GetBestQualityData `json:"data"`
 }
 
-func GetBestQuality(streamId int, timestamp time.Time) (*GetBestQualityResponse, error) {
-	url := FrsUrl + "/api/bestQuality"
+func GetBestQuality(streamId int, timestamp time.Time, frsUrl string) (*GetBestQualityResponse, error) {
+	url := frsUrl + "/api/bestQuality"
 
 	// make headers
 	headers := map[string]string{
@@ -89,7 +91,7 @@ func MotionDetection(streamId int, motionActive bool, frsUrl string) error {
 	if err != nil {
 		return fmt.Errorf("error sending request %w", err)
 	}
-	if statusCode != 204 {
+	if statusCode != FrsSuccesCode {
 		return fmt.Errorf("unexpected status code: %d", statusCode)
 	}
 	return nil

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -59,15 +58,23 @@ func startServer() {
 	// init postgres storage
 	repo, err := repository.NewPostgresRepository(psqlStorage.DB, logger)
 
+	// -----
 	//test
-	dm_ID, _ := repo.Households.GetDomophoneByIP(context.Background(), "37.235.188.212")
-	logger.Debug("test", "demophobeId", dm_ID)
 
-	stream, _ := repo.Cameras.GetStreamByIP(context.Background(), "37.235.188.212")
-	logger.Debug("test", "stream", stream)
+	// ----- tests
+	timestampFake := "2025-04-07 16:52:22"
+	logger.Debug("TEST time", "timestamp str", timestampFake)
 
-	entrace, _ := repo.Households.GetEntrace(context.Background(), dm_ID)
-	logger.Debug("test", "entrace", entrace)
+	loc, _ := time.LoadLocation("Europe/Moscow")
+	timestampParsed, _ := time.ParseInLocation(time.DateTime, timestampFake, loc)
+	logger.Debug("TEST time", "timestamp parsed", timestampParsed)
+
+	data, err := utils.GetBestQuality(42, timestampParsed)
+	if err != nil {
+		logger.Error("Error getting best quality", "error", err)
+	}
+	logger.Debug("TEST time", "data", data)
+	// ----- tests
 
 	// load spam filter
 	spamFilers, err := config.LoadSpamFilters("spamwords.json")

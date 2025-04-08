@@ -208,6 +208,8 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		8 storage image to MongoDB
 		9 create "plog" record to clickhouse
 	*/
+	h.logger.Debug("TEST | HandleOpenByRFID", "timestamp", timestamp)
+	h.logger.Debug("TEST | HandleOpenByRFID", "timestamp", timestamp.Format(time.RFC3339))
 
 	// ----- 1
 	var isExternalReader bool
@@ -257,11 +259,35 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		2 полчаем вход (основной или дополнительный)  на основании считывателя
 		3 получаем камеру входа
 	*/
-	return
+
+	//domophone, _ := h.repo.Households.GetDomophone(context.Background(), "ip", host)
 
 	// ----- 5
 	// TODO: implement get "streamName" and "streamID" by ip intercom
 
+	domophone, err := h.repo.Households.GetDomophone(context.Background(), "ip", host)
+	if err != nil {
+		h.logger.Warn("Failed to get domophone", "error", err)
+	}
+
+	entrance, err := h.repo.Households.GetEntrace(context.Background(), domophone.HouseDomophoneID, door)
+	if err != nil {
+		h.logger.Warn("Failed to get entrance", "error", err)
+	}
+
+	if entrance.CameraID == nil {
+		h.logger.Warn("Failed to get camera id")
+		return
+	}
+
+	camera, err := h.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
+	if err != nil {
+		h.logger.Warn("Failed to get camera", "error", err)
+	}
+
+	h.logger.Debug("TEST", camera)
+
+	return
 	stream, err := backend.GetStremByIp(host)
 	if err != nil {
 		h.logger.Error("APICallToRBT", "err", err)

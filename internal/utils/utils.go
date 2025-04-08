@@ -21,7 +21,7 @@ type GetBestQualityData struct {
 }
 
 type GetBestQualityResponse struct {
-	Code    int                `json:"code"`
+	Code    string             `json:"code"`
 	Name    string             `json:"name"`
 	Message string             `json:"message"`
 	Data    GetBestQualityData `json:"data"`
@@ -62,7 +62,7 @@ func SendPostRequest(url string, headers map[string]string, payload interface{})
 }
 
 func GetBestQuality(streamId int, timestamp time.Time) (*GetBestQualityResponse, error) {
-	url := "http://rbt-demo.lanta.me:9051/api/bestQuality"
+	url := "http://rbt-demo.lanta.me:12345/frs/api/bestQuality"
 
 	// make headers
 	headers := map[string]string{
@@ -72,7 +72,7 @@ func GetBestQuality(streamId int, timestamp time.Time) (*GetBestQualityResponse,
 	// make payload
 	payload := map[string]interface{}{
 		"streamId": streamId,
-		"date":     timestamp.Format("2006-01-02 15:04:05"),
+		"date":     timestamp,
 	}
 
 	// call request

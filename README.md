@@ -6,6 +6,13 @@ logger  --udp --port 45452 --server localhost "blabla"
 logger  --udp --port 45450 --server 192.168.13.39  "Opening door by RFID 00000075BC01AD, apartment 0"
 ```
 
+##### RFID external reader
+```shell
+logger  --udp --port 45450 --server localhost "Opening door by external RFID 0000000911302A, apartment 0"
+```
+Opening door by external RFID 0000000911302A, apartment 0
+
+
 CREATE TABLE IF NOT EXISTS default.demo
 (
 `date`       UInt32,
