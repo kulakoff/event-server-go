@@ -12,17 +12,20 @@ import (
 	"time"
 )
 
+const (
+	BearerTokenExample = "fbc55e76-848f-417e-a0c8-809646a5a4f8"
+)
+
 type GetBestQualityData struct {
-	Height     int    `json:"height"`
-	Top        int    `json:"top"`
-	Left       int    `json:"left"`
-	With       int    `json:"with"`
-	Screenshot string `json:"screenshot"`
+	ScreenshotURL string `json:"screenshotUrl"`
+	Left          int    `json:"left"`
+	Top           int    `json:"top"`
+	With          int    `json:"with"`
+	Height        int    `json:"height"`
 }
 
 type GetBestQualityResponse struct {
 	Code    string             `json:"code"`
-	Name    string             `json:"name"`
 	Message string             `json:"message"`
 	Data    GetBestQualityData `json:"data"`
 }
@@ -66,7 +69,8 @@ func GetBestQuality(streamId int, timestamp time.Time) (*GetBestQualityResponse,
 
 	// make headers
 	headers := map[string]string{
-		"Content-Type": "application/json",
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer " + BearerTokenExample,
 	}
 
 	// make payload
@@ -146,7 +150,7 @@ func FromGUIDv4(guid string) (string, error) {
 		return "", fmt.Errorf("invalid GUID format")
 	}
 
-	return guid[8:], nil
+	return uuid[8:], nil
 }
 
 // ExtractRFIDKey - extract RFID key from syslog message
