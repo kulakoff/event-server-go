@@ -16,8 +16,9 @@ type HouseHoldRepository interface {
 	UpdateRFIDLastSeen(ctx context.Context, rfid string) error
 	GetFlatByRFID(ctx context.Context, rfid string) (int, error)
 	GetDomophoneIDByIP(ctx context.Context, ip string) (int, error)
-	GetEntrace(ctx context.Context, domophoneId int, output int) (*models.HouseEntrance, error)
-	GetDomophone(ctx context.Context, by string, ip string) (*models.Domophone, error)
+	GetEntrace(ctx context.Context, domophoneId, output int) (*models.HouseEntrance, error)
+	GetDomophone(ctx context.Context, by, p string) (*models.Domophone, error)
+	GetFlats(ctx context.Context, by, p string) (*models.Flat, error)
 }
 
 type HouseholdRepositoryImpl struct {
@@ -203,6 +204,10 @@ func (r *HouseholdRepositoryImpl) GetDomophone(ctx context.Context, by string, p
 
 	r.logger.Debug("Domophone found", "house_domophone_id", domophone.HouseDomophoneID)
 	return &domophone, nil
+}
+
+func (r *HouseholdRepositoryImpl) GetFlats(ctx context.Context, by, param string) (*models.Flat, error) {
+	return nil, nil
 }
 
 /**
