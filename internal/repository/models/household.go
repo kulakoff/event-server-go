@@ -48,25 +48,25 @@ type Domophone struct {
 }
 
 type Flat struct {
-	HouseFlatID      int     `json:"house_flat_id" db:"house_flat_id"`
-	AddressHouseID   int     `json:"address_house_id" db:"address_house_id"`
-	Floor            *int    `json:"floor,omitempty" db:"floor"`
-	Flat             string  `json:"flat" db:"flat"`
-	Code             *string `json:"code,omitempty" db:"code"`
-	Plog             *int    `json:"plog,omitempty" db:"plog"`
-	ManualBlock      *int    `json:"manual_block,omitempty" db:"manual_block"`
-	AutoBlock        *int    `json:"auto_block,omitempty" db:"auto_block"`
-	AdminBlock       *int    `json:"admin_block,omitempty" db:"admin_block"`
-	OpenCode         *string `json:"open_code,omitempty" db:"open_code"`
-	AutoOpen         *int    `json:"auto_open,omitempty" db:"auto_open"`
-	WhiteRabbit      *int    `json:"white_rabbit,omitempty" db:"white_rabbit"`
-	SipEnabled       *int    `json:"sip_enabled,omitempty" db:"sip_enabled"`
-	SipPassword      *string `json:"sip_password,omitempty" db:"sip_password"`
-	LastOpened       *int    `json:"last_opened,omitempty" db:"last_opened"`
-	CmsEnabled       *int    `json:"cms_enabled,omitempty" db:"cms_enabled"`
-	Contract         *string `json:"contract,omitempty" db:"contract"`
-	Login            *string `json:"login,omitempty" db:"login"`
-	Password         *string `json:"password,omitempty" db:"password"`
-	Cars             *string `json:"cars,omitempty" db:"cars"`
-	SubscribersLimit *int    `json:"subscribers_limit,omitempty" db:"subscribers_limit"`
+	HouseFlatID      int     `json:"house_flat_id"`
+	AddressHouseID   int     `json:"address_house_id"`
+	Floor            *int    `json:"floor,omitempty"`
+	Flat             string  `json:"flat"`
+	Code             *string `json:"code,omitempty"`
+	Plog             *int    `json:"plog,omitempty"`
+	ManualBlock      *int    `json:"manual_block,omitempty"`
+	AutoBlock        *int    `json:"auto_block,omitempty"`
+	AdminBlock       *int    `json:"admin_block,omitempty"`
+	OpenCode         *string `json:"open_code,omitempty"`
+	AutoOpen         *int    `json:"auto_open,omitempty"`
+	WhiteRabbit      *int    `json:"white_rabbit,omitempty"`
+	SipEnabled       *int    `json:"sip_enabled,omitempty"`
+	SipPassword      *string `json:"sip_password,omitempty"`
+	LastOpened       *int    `json:"last_opened,omitempty"`
+	CmsEnabled       *int    `json:"cms_enabled,omitempty"`
+	Contract         *string `json:"contract,omitempty"`
+	Login            *string `json:"login,omitempty"`
+	Password         *string `json:"password,omitempty"`
+	Cars             *string `json:"cars,omitempty"`
+	SubscribersLimit *int    `json:"subscribers_limit,omitempty"`
 }
