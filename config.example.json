@@ -12,9 +12,8 @@
   "mongodb": {
     "uri": "mongodb://root:example@172.28.0.5:27017",
     "database": "rbt"
-
   },
-  "postgresql": {
+  "postgres": {
     "host": "172.28.0.6",
     "port": 5432,
     "database": "rbt",
