@@ -8,9 +8,12 @@ import (
 )
 
 // FrsUrl FIXME: refactor url dummy
-//const FrsUrl = "http://localhost:9051"
-
-const FrsSuccesCode = 200 // TODO: replace to 204 code
+// const FrsUrl = "http://localhost:9051"
+// example token
+const (
+	BearerTokenExample = "fbc55e76-848f-417e-a0c8-809646a5a4f8"
+	SuccessCode        = 204
+)
 
 type GetBestQualityData struct {
 	Height     int    `json:"height"`
@@ -27,12 +30,13 @@ type GetBestQualityResponse struct {
 	Data    GetBestQualityData `json:"data"`
 }
 
-func GetBestQuality(streamId int, timestamp time.Time, frsUrl string) (*GetBestQualityResponse, error) {
+func GetBestQuality(streamId int, timestamp time.Time, frsUrl, bearerToken string) (*GetBestQualityResponse, error) {
 	url := frsUrl + "/api/bestQuality"
 
 	// make headers
 	headers := map[string]string{
-		"Content-Type": "application/json",
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer " + bearerToken,
 	}
 
 	// make payload
@@ -68,9 +72,10 @@ func GetBestQuality(streamId int, timestamp time.Time, frsUrl string) (*GetBestQ
 	return nil, fmt.Errorf("unexpected status code: %d", statusCode)
 }
 
+// TODO: add param bearer token to api call
 // MotionDetection - send motion start or stop message to RRS service
 func MotionDetection(streamId int, motionActive bool, frsUrl string) error {
-	url := frsUrl + "/api/motionDetection"
+	url := frsUrl + "motionDetection"
 	var motion string
 	if motionActive {
 		motion = "t"
@@ -79,19 +84,20 @@ func MotionDetection(streamId int, motionActive bool, frsUrl string) error {
 	}
 
 	headers := map[string]string{
-		"Content-Type": "application/json",
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer " + BearerTokenExample,
 	}
 
 	payload := map[string]interface{}{
 		"streamId": streamId,
-		"motion":   motion,
+		"start":    motion,
 	}
 
 	_, statusCode, err := utils.SendPostRequest(url, headers, payload)
 	if err != nil {
 		return fmt.Errorf("error sending request %w", err)
 	}
-	if statusCode != FrsSuccesCode {
+	if statusCode != SuccessCode {
 		return fmt.Errorf("unexpected status code: %d", statusCode)
 	}
 	return nil

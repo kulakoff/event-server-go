@@ -95,6 +95,6 @@ func (c *ClickhouseHttpClient) Ping() error {
 		return fmt.Errorf("non-OK HTTP status: %s", resp.Status)
 	}
 
-	c.logger.Debug("Ping to Clickhouse successful")
+	c.logger.Info("Ping to Clickhouse successful")
 	return nil
 }

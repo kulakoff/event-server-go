@@ -18,7 +18,7 @@ type HouseHoldRepository interface {
 	GetDomophoneIDByIP(ctx context.Context, ip string) (int, error)
 	GetEntrace(ctx context.Context, domophoneId, output int) (*models.HouseEntrance, error)
 	GetDomophone(ctx context.Context, by, p string) (*models.Domophone, error)
-	GetFlats(ctx context.Context, by, p string) (*models.Flat, error)
+	GetFlats(ctx context.Context, by, p string) ([]*models.Flat, error)
 }
 
 type HouseholdRepositoryImpl struct {
@@ -206,8 +206,72 @@ func (r *HouseholdRepositoryImpl) GetDomophone(ctx context.Context, by string, p
 	return &domophone, nil
 }
 
-func (r *HouseholdRepositoryImpl) GetFlats(ctx context.Context, by, param string) (*models.Flat, error) {
-	return nil, nil
+func (r *HouseholdRepositoryImpl) GetFlats(ctx context.Context, by, param string) ([]*models.Flat, error) {
+	r.logger.Debug("GetFlats start")
+	var query string
+	var queryParam interface{}
+
+	//TODO:
+	//find by rfid
+	//find by code
+	switch by {
+	case "rfid":
+		query = `
+            SELECT hf.* 
+            FROM houses_flats hf
+            JOIN houses_rfids hr ON hf.house_flat_id = hr.house_flat_id
+            WHERE hr.rfid = $1
+        `
+		queryParam = param
+	default:
+		return nil, fmt.Errorf("invalid search type: %s", by)
+	}
+
+	r.logger.Debug("GetFlats start", "query", query)
+
+	rows, err := r.db.Query(ctx, query, queryParam)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query flats: %w", err)
+	}
+	defer rows.Close()
+
+	var flats []*models.Flat
+	for rows.Next() {
+		var flat *models.Flat
+		err := rows.Scan(
+			&flat.HouseFlatID,
+			&flat.AddressHouseID,
+			&flat.Floor,
+			&flat.Flat,
+			&flat.Code,
+			&flat.Plog,
+			&flat.ManualBlock,
+			&flat.AutoBlock,
+			&flat.AdminBlock,
+			&flat.OpenCode,
+			&flat.AutoOpen,
+			&flat.WhiteRabbit,
+			&flat.SipEnabled,
+			&flat.SipPassword,
+			&flat.LastOpened,
+			&flat.CmsEnabled,
+			&flat.Contract,
+			&flat.Login,
+			&flat.Password,
+			&flat.Cars,
+			&flat.SubscribersLimit,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan flat: %w", err)
+		}
+		flats = append(flats, flat)
+	}
+
+	if len(flats) == 0 {
+		return nil, fmt.Errorf("no flats found for %s = %s", by, param)
+	}
+
+	return flats, nil
 }
 
 /**

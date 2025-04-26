@@ -13,6 +13,7 @@ import (
 type CameraRepository interface {
 	GetStreamByIP(ctx context.Context, ip string) (*models.Stream, error)
 	GetCamera(ctx context.Context, id int) (*models.Camera, error)
+	GetCameraByIP(ctx context.Context, ip string) (*models.Camera, error)
 }
 
 type CameraRepositoryImpl struct {
@@ -96,5 +97,54 @@ func (r *CameraRepositoryImpl) GetCamera(ctx context.Context, id int) (*models.C
 		return nil, fmt.Errorf("failed to query camera: %s", err)
 	}
 	r.logger.Debug("Getting camera by ID", "camera_id", id)
+	return &camera, nil
+}
+
+func (r *CameraRepositoryImpl) GetCameraByIP(ctx context.Context, ip string) (*models.Camera, error) {
+	//TODO: implement me
+	r.logger.Debug("Getting camera by IP", "camera_id", ip)
+
+	query := `
+        SELECT camera_id, enabled, model, url, stream, credentials, name, dvr_stream, timezone, 
+               lat, lon, direction, angle, distance, frs, common, ip, sub_id, sound, comments, 
+               md_area, rc_area, frs_mode, ext
+        FROM cameras 
+        WHERE ip = $1
+    `
+	var camera models.Camera
+	err := r.db.QueryRow(ctx, query, ip).Scan(
+		&camera.CameraID,
+		&camera.Enabled,
+		&camera.Model,
+		&camera.URL,
+		&camera.Stream,
+		&camera.Credentials,
+		&camera.Name,
+		&camera.DVRStream,
+		&camera.Timezone,
+		&camera.Lat,
+		&camera.Lon,
+		&camera.Direction,
+		&camera.Angle,
+		&camera.Distance,
+		&camera.FRS,
+		&camera.Common,
+		&camera.IP,
+		&camera.SubID,
+		&camera.Sound,
+		&camera.Comments,
+		&camera.MdArea,
+		&camera.RcArea,
+		&camera.FrsMode,
+		&camera.Ext,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			r.logger.Warn("Camera not ")
+		}
+		r.logger.Error("Database query failed", "error", err, "camera_id", ip)
+		return nil, fmt.Errorf("failed to query camera: %s", err)
+	}
+	r.logger.Debug("Getting camera by IP", "camera_id", ip)
 	return &camera, nil
 }

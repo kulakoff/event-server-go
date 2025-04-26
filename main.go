@@ -16,8 +16,8 @@ import (
 )
 
 func main() {
-	startServer()
-	//todo2()
+	//startServer()
+	test()
 }
 
 // main logic
@@ -232,4 +232,54 @@ func todo2() {
 		return
 	}
 
+}
+
+func test() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger.Info("app started")
+
+	// load main config
+	cfg, err := config.New("config.json")
+	if err != nil {
+		logger.Warn("Error loading config file", "error", err)
+	}
+
+	// clickhouse init
+	ch, err := storage.NewClickhouseHttpClient(logger, &cfg.Clickhouse)
+	if err != nil {
+		logger.Error("Error init Clickhouse", "error", err)
+		os.Exit(1)
+	}
+
+	// mongodb init
+	mongo, err := storage.NewMongoDb(logger, cfg.MongoDb)
+	if err != nil {
+		logger.Error("Error init MongoDB", "error", err)
+		os.Exit(1)
+	}
+
+	// postgres init
+	psqlStorage, err := storage.NewPSQLStorage(logger, cfg.Postgres)
+	if err != nil {
+		logger.Error("Error init PSQLStorage", "error", err)
+		os.Exit(1)
+	}
+	defer psqlStorage.Close()
+
+	// init postgres storage
+	repo, err := repository.NewPostgresRepository(psqlStorage.DB, logger)
+
+	// load spam filter
+	spamFilers, err := config.LoadSpamFilters("spamwords.json")
+	if err != nil {
+		logger.Warn("Error loading spam filters", "error", err)
+	}
+
+	// ----- Beward syslog_custom server
+	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo)
+	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
+	go bewardServer.Start()
+
+	// Block main thread
+	select {}
 }

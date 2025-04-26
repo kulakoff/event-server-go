@@ -72,16 +72,20 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		- count open by button
 		- count open by frid key
 	*/
-	now := time.Now()
 
-	// filter
+	// get timestamp
+	// FIXME: load location from system or config
+	location, _ := time.LoadLocation("Europe/Moscow")
+	now := time.Now().In(location).Truncate(time.Second)
+
+	// filter message
 	if h.FilterMessage(message.Message) {
 		// FIXME: remove DEBUG
-		h.logger.Debug("Skipping message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+		//h.logger.Debug("HandleMessage || Skipping message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 		return
 	}
 
-	h.logger.Debug("Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+	h.logger.Debug("HandleMessage || Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 
 	// ----- storage message
 	var host string
@@ -104,11 +108,15 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		h.logger.Warn("Failed to marshal storage message", "error", err)
 	}
 
-	// ----- send log to remote storage
+	// ----- send syslog message to remote storage
 	h.storage.Insert("syslog", string(storageMessageJson))
 
 	// --------------------
 	// Implement Beward-specific message processing here
+	// Track debug msg
+	if strings.Contains(message.Message, "cancel button") {
+		h.HandleDebug(&now, host, message.Message)
+	}
 
 	// Track motion detection
 	if strings.Contains(message.Message, "SS_MAINAPI_ReportAlarmHappen") {
@@ -128,15 +136,16 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		*/
 	}
 
-	// Tracks open door
+	// Tracks open door by code
 	if strings.Contains(message.Message, "Opening door by code") {
 		h.HandleOpenByCode(&now, host, message.Message)
 	}
+	// Tracks open door by RFID key
 	if strings.Contains(message.Message, "Opening door by RFID") ||
 		strings.Contains(message.Message, "Opening door by external RFID") {
 		h.HandleOpenByRFID(&now, host, message.Message)
 	}
-
+	// Tracks open door by button
 	if strings.Contains(message.Message, "door button pressed") {
 		h.HandleOpenByButton(&now, host, message.Message)
 	}
@@ -163,6 +172,7 @@ func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
 	return nil
 }
 
+// HandleMotionDetection - OK
 func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host string, motionActive bool) {
 	// implement motion detection logic
 	// get streamId by intercom IP and call to API FRS. message motion start or stop
@@ -173,14 +183,12 @@ func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host string,
 		2 check FRS enable, not eq "-"
 		3 send req to FRS service
 	*/
-	stream, err := backend.GetStremByIp(host)
-	if err != nil {
-		h.logger.Warn("Failed to get stream", "error", err)
-	}
-
+	camera, _ := h.repo.Cameras.GetCameraByIP(context.Background(), host)
+	//h.logger.Debug("Motion detect process", "camera", camera.FRS)
 	// check if FRS enable
-	if stream.UrlFRS != "-" {
-		err := frs.MotionDetection(stream.ID, motionActive, stream.UrlFRS)
+	if *camera.FRS != "-" {
+		//h.logger.Debug("Motion detect process, FRS enabled")
+		err := frs.MotionDetection(camera.CameraID, motionActive, *camera.FRS)
 		if err != nil {
 			h.logger.Warn("Failed to send motion detect to FRS service", "error", err)
 			return
@@ -208,15 +216,11 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		8 storage image to MongoDB
 		9 create "plog" record to clickhouse
 	*/
-	h.logger.Debug("TEST | HandleOpenByRFID", "timestamp", timestamp)
-	h.logger.Debug("TEST | HandleOpenByRFID", "timestamp", timestamp.Format(time.RFC3339))
 
 	// ----- 1
-	var isExternalReader bool
+	isExternalReader := false
 	if strings.Contains(message, "external") {
 		isExternalReader = true
-	} else {
-		isExternalReader = false
 	}
 
 	// ----- 2
@@ -228,11 +232,9 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	}
 
 	// ----- 3
-	var door int
+	door := 0
 	if isExternalReader {
 		door = 1
-	} else {
-		door = 0
 	}
 
 	h.logger.Debug("Open by RFID", "door", door, "rfid", rfidKey)
@@ -285,7 +287,52 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		h.logger.Warn("Failed to get camera", "error", err)
 	}
 
-	h.logger.Debug("TEST", camera)
+	// frs enaled - get
+	/**
+	TODO:
+		get screenshot from camera
+		frs enabled - get GetBestQuality
+			if GetBestQuality result - use FRS screenshot
+			if not GetBestQuality result - use first camera screen
+	*/
+	frsEnabled := false
+	if *camera.FRS != "-" {
+		frsEnabled = true
+	}
+	h.logger.Debug("Open by RFID", "frsEnabled >>", frsEnabled)
+
+	internalAPIURL := "https://rbt-demo.lanta.me:55544/internal"
+	_imageUrl := internalAPIURL + "/frs/camshot/" + strconv.Itoa(camera.CameraID)
+	h.logger.Debug("Open by RFID", "_imageUrl >>", _imageUrl)
+
+	// download file from RBT
+	//_screenShot, err := utils.DownloadFile(_imageUrl)
+	//if err != nil {
+	//	h.logger.Debug("FRS DownloadFile", "err", err)
+	//}
+	//
+	//// if frs enabled - call bestQuality
+	//if *camera.FRS != "-" {
+	//
+	//	bestQualityResp, err := utils.GetBestQuality(camera.CameraID, *timestamp)
+	//	if err != nil {
+	//
+	//		return
+	//	}
+	//
+	//	if bestQualityResp == nil {
+	//		h.logger.Debug("Open by RFID", "GetBestQuality response", bestQualityResp)
+	//
+	//		// download file from FRS
+	//		//https://rbt-demo.lanta.me:8443/rbt-demo-0016/index.m3u8?token=phei9quohmoochoth5es3eo9Koh5ua9i
+	//		//https://rbt-demo.lanta.me:8443/rbt-demo-0016/preview.mp4?token=phei9quohmoochoth5es3eo9Koh5ua9i
+	//
+	//	}
+	//} else {
+	//	//get image from DVR
+	//	h.logger.Debug("Open by RFID, FRS is DIS")
+	//	h.logger.Debug("Open by RFID", "DVR URL", camera.DVRStream)
+	//}
 
 	return
 	stream, err := backend.GetStremByIp(host)
@@ -301,7 +348,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	if err != nil {
 		h.logger.Debug("FRS GetBestQuality", "err", err)
 	} else if frsResp != nil {
-		h.logger.Debug("FRS GetBestQuality OK", "screenshot", frsResp.Data.Screenshot)
+		h.logger.Debug("FRS GetBestQuality OK", "screenshot", frsResp.Data.ScreenshotURL)
 	} else {
 		h.logger.Debug("FRS GetBestQuality no frame", "err", err)
 	}
@@ -311,7 +358,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	// test | replace hostname in url
 	var imageUrl string
 	if frsResp != nil {
-		imageUrl = frsResp.Data.Screenshot
+		imageUrl = frsResp.Data.ScreenshotURL
 	}
 	imageUrl = strings.Replace(imageUrl, "localhost", "rbt-demo.lanta.me", -1)
 
@@ -424,4 +471,79 @@ func (h *BewardHandler) HandleOpenByButton(timestamp *time.Time, host, message s
 
 func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message string) {
 	// implement call flow logic
+}
+
+func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
+	h.logger.Debug("HandleMessage | HandleDebug", "timestamp", timestamp)
+	//dummy data
+	door := 0
+	rbtAPI := "https://rbt-demo.lanta.me:55544/internal"
+	frs := false
+	fakeRFID := "00000004030201"
+
+	// get domophone
+	domophone, err := h.repo.Households.GetDomophone(context.Background(), "ip", host)
+	if err != nil {
+		h.logger.Warn("Failed to get domophone", "error", err)
+	}
+
+	// get entrance
+	entrance, err := h.repo.Households.GetEntrace(context.Background(), domophone.HouseDomophoneID, door)
+	if err != nil {
+		h.logger.Warn("Failed to get entrance", "error", err)
+	}
+
+	// get entrance camera
+	camera, err := h.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
+	if err != nil {
+		h.logger.Warn("Failed to get camera", "error", err)
+	}
+
+	// check FRS enabled
+	if *camera.FRS != "-" {
+		frs = true
+	}
+
+	// 01 - get screenshot from domophone camera
+	imgURL := rbtAPI + "/frs/camshot/" + strconv.Itoa(camera.CameraID)
+	camScreenShot, err := utils.DownloadFile(imgURL)
+	if err != nil {
+		h.logger.Debug("RBT DownloadFile", "err", err)
+	}
+
+	// 02 get screenshot from FRS
+	if frs {
+		h.logger.Debug("HandleMessage | HandleDebug | FRS enabled")
+		bqResponse, _ := utils.GetBestQuality(camera.CameraID, *timestamp)
+		if bqResponse != nil {
+			camScreenShot = nil
+			h.logger.Debug("HandleMessage | HandleDebug | get img from FRS")
+			camScreenShot, err = utils.DownloadFile(bqResponse.Data.ScreenshotURL)
+		}
+	}
+
+	metadata := map[string]interface{}{
+		"contentType": "image/jpeg",
+		"expire":      int32(timestamp.Add(time.Hour * 24 * 30 * 6).Unix()),
+	}
+
+	// save data to MongoDb
+	fileId, err := h.fsFiles.SaveFile("camshot", metadata, camScreenShot)
+	if err != nil {
+		h.logger.Debug("MongoDB SaveFile", "err", err)
+	}
+	h.logger.Debug("MongoDB SaveFile", "fileId", fileId)
+	camScreenShot = nil
+
+	// 9
+	eventGUIDv4 := uuid.New().String()
+	imageGUIDv4 := utils.ToGUIDv4(fileId)
+	fileIDFromGUID, _ := utils.FromGUIDv4(imageGUIDv4)
+	h.logger.Debug("DEBUG", "eventGUIDv4", eventGUIDv4)
+	h.logger.Debug("DEBUG", "imageGUIDv4", imageGUIDv4)
+	h.logger.Debug("DEBUG", "from guid", fileIDFromGUID)
+
+	res, _ := h.repo.Households.GetFlats(context.Background(), "rfid", fakeRFID)
+	h.logger.Debug("FLATS by rfid >>", "result", res)
+
 }
