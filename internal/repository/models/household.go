@@ -2,6 +2,8 @@ package models
 
 // HouseEntrance table houses_entraces
 type HouseEntrance struct {
+	AddressHouseID   int      `json:"address_house_id"`
+	Prefix           int      `json:"prefix"`
 	HouseEntranceID  int      `json:"house_entrance_id"`
 	EntranceType     *string  `json:"entrance_type"`
 	Entrance         string   `json:"entrance"`
@@ -69,4 +71,14 @@ type Flat struct {
 	Password         *string `json:"password,omitempty"`
 	Cars             *string `json:"cars,omitempty"`
 	SubscribersLimit *int    `json:"subscribers_limit,omitempty"`
+}
+
+type RFID struct {
+	HouseRfidId int     `json:"house_rfid_id"`
+	RFID        string  `json:"rfid"`
+	AccessType  int     `json:"access_type"`
+	AccessTo    int     `json:"access_to"`
+	LastSeen    *int    `json:"last_seen"`
+	Comments    *string `json:"comments"`
+	Watch       int     `json:"watch"`
 }

@@ -4,21 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/kulakoff/event-server-go/internal/repository/models"
 	"log/slog"
 	"strconv"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/kulakoff/event-server-go/internal/repository/models"
 )
 
 type HouseHoldRepository interface {
 	UpdateRFIDLastSeen(ctx context.Context, rfid string) error
 	GetFlatByRFID(ctx context.Context, rfid string) (int, error)
 	GetDomophoneIDByIP(ctx context.Context, ip string) (int, error)
-	GetEntrace(ctx context.Context, domophoneId, output int) (*models.HouseEntrance, error)
+	GetEntrance(ctx context.Context, domophoneId, output int) (*models.HouseEntrance, error)
 	GetDomophone(ctx context.Context, by, p string) (*models.Domophone, error)
-	GetFlats(ctx context.Context, by, p string) ([]*models.Flat, error)
+	GetFlatsByRFID(ctx context.Context, rfid string) ([]int, error)
 }
 
 type HouseholdRepositoryImpl struct {
@@ -77,43 +78,67 @@ func (r *HouseholdRepositoryImpl) GetDomophoneIDByIP(ctx context.Context, ip str
 	return domophoneID, nil
 }
 
-func (r *HouseholdRepositoryImpl) GetEntrace(ctx context.Context, domophoneId int, output int) (*models.HouseEntrance, error) {
-	r.logger.Debug("Getting entrace by domophoneId")
+func (r *HouseholdRepositoryImpl) GetEntrance(ctx context.Context, domophoneId, output int) (*models.HouseEntrance, error) {
+	r.logger.Debug("Getting entrance by domophoneId")
 	query := `
 			SELECT
-				house_entrance_id, entrance_type, entrance, lat, lon,
-				shared, plog, caller_id, camera_id, house_domophone_id,
-				domophone_output, cms, cms_type, cms_levels, path,
-				distance, alt_camera_id_1, alt_camera_id_2, alt_camera_id_3,
-				alt_camera_id_4, alt_camera_id_5, alt_camera_id_6, alt_camera_id_7
+			    address_house_id,
+			    prefix,
+				house_entrance_id, 
+				entrance_type, 
+				entrance, 
+				lat, 
+				lon,
+				shared, 
+				plog, 
+				caller_id, 
+				camera_id, 
+				house_domophone_id,
+				domophone_output, 
+				cms, 
+				cms_type, 
+				coalesce(cms_levels, '') as	cms_levels,
+				path,
+				distance, 
+				alt_camera_id_1, 
+				alt_camera_id_2, 
+				alt_camera_id_3,
+				alt_camera_id_4, 
+				alt_camera_id_5, 
+				alt_camera_id_6, 
+				alt_camera_id_7
 			FROM houses_entrances
+			LEFT JOIN houses_houses_entrances USING (house_entrance_id)
 			WHERE house_domophone_id = $1 AND domophone_output = $2
+			ORDER BY entrance_type, entrance
 `
-	var entrace models.HouseEntrance
+	var entrance models.HouseEntrance
 	err := r.db.QueryRow(ctx, query, domophoneId, output).Scan(
-		&entrace.HouseEntranceID,
-		&entrace.EntranceType,
-		&entrace.Entrance,
-		&entrace.Lat,
-		&entrace.Lon,
-		&entrace.Shared,
-		&entrace.Plog,
-		&entrace.CallerID,
-		&entrace.CameraID,
-		&entrace.HouseDomophoneID,
-		&entrace.DomophoneOutput,
-		&entrace.CMS,
-		&entrace.CMSType,
-		&entrace.CMSLevels,
-		&entrace.Path,
-		&entrace.Distance,
-		&entrace.AltCameraID1,
-		&entrace.AltCameraID2,
-		&entrace.AltCameraID3,
-		&entrace.AltCameraID4,
-		&entrace.AltCameraID5,
-		&entrace.AltCameraID6,
-		&entrace.AltCameraID7,
+		&entrance.AddressHouseID,
+		&entrance.Path,
+		&entrance.HouseEntranceID,
+		&entrance.EntranceType,
+		&entrance.Entrance,
+		&entrance.Lat,
+		&entrance.Lon,
+		&entrance.Shared,
+		&entrance.Plog,
+		&entrance.CallerID,
+		&entrance.CameraID,
+		&entrance.HouseDomophoneID,
+		&entrance.DomophoneOutput,
+		&entrance.CMS,
+		&entrance.CMSType,
+		&entrance.CMSLevels,
+		&entrance.Path,
+		&entrance.Distance,
+		&entrance.AltCameraID1,
+		&entrance.AltCameraID2,
+		&entrance.AltCameraID3,
+		&entrance.AltCameraID4,
+		&entrance.AltCameraID5,
+		&entrance.AltCameraID6,
+		&entrance.AltCameraID7,
 	)
 
 	if err != nil {
@@ -125,20 +150,8 @@ func (r *HouseholdRepositoryImpl) GetEntrace(ctx context.Context, domophoneId in
 		return nil, fmt.Errorf("failed to get entrance: %w", err)
 	}
 
-	// process errors v2
-	//switch {
-	//case errors.Is(err, pgx.ErrNoRows):
-	//	r.logger.Warn("Entrace not found", "domophone_id", domophoneId)
-	//	return nil, fmt.Errorf("domophone with ID %s not found", domophoneId)
-	//case err != nil:
-	//	r.logger.Error("Database query failed",
-	//		"error", err,
-	//		"domophone_id", domophoneId)
-	//	return nil, fmt.Errorf("failed to get entrance: %w", err)
-	//}
-
-	r.logger.Debug("Entrace found", "domophoneID", domophoneId, "entraceId", entrace.HouseEntranceID)
-	return &entrace, nil
+	r.logger.Debug("Entrace found", "domophoneID", domophoneId, "entraceId", entrance.HouseEntranceID)
+	return &entrance, nil
 }
 
 func (r *HouseholdRepositoryImpl) GetDomophone(ctx context.Context, by string, param string) (*models.Domophone, error) {
@@ -206,72 +219,44 @@ func (r *HouseholdRepositoryImpl) GetDomophone(ctx context.Context, by string, p
 	return &domophone, nil
 }
 
-func (r *HouseholdRepositoryImpl) GetFlats(ctx context.Context, by, param string) ([]*models.Flat, error) {
-	r.logger.Debug("GetFlats start")
-	var query string
-	var queryParam interface{}
+func (r *HouseholdRepositoryImpl) GetFlatsByRFID(ctx context.Context, rfid string) ([]int, error) {
+	r.logger.Debug("GetFlatsByRFID RUN >")
+	query := `
+		SELECT house_flat_id 
+		FROM houses_flats 
+		WHERE house_flat_id IN (
+		    SELECT access_to
+		    FROM houses_rfids
+		    WHERE access_type = 2 AND rfid = $1
+		)
+		GROUP BY house_flat_id
+	`
 
-	//TODO:
-	//find by rfid
-	//find by code
-	switch by {
-	case "rfid":
-		query = `
-            SELECT hf.* 
-            FROM houses_flats hf
-            JOIN houses_rfids hr ON hf.house_flat_id = hr.house_flat_id
-            WHERE hr.rfid = $1
-        `
-		queryParam = param
-	default:
-		return nil, fmt.Errorf("invalid search type: %s", by)
-	}
+	r.logger.Debug("GetFlatsByRFID query", "query", query, "rfid", rfid)
 
-	r.logger.Debug("GetFlats start", "query", query)
-
-	rows, err := r.db.Query(ctx, query, queryParam)
+	rows, err := r.db.Query(ctx, query, rfid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query flats: %w", err)
+		r.logger.Error("Query executing failed", "error", err)
+		return nil, fmt.Errorf("query failed: %w", err)
 	}
 	defer rows.Close()
 
-	var flats []*models.Flat
+	var flatIDs []int
 	for rows.Next() {
-		var flat *models.Flat
-		err := rows.Scan(
-			&flat.HouseFlatID,
-			&flat.AddressHouseID,
-			&flat.Floor,
-			&flat.Flat,
-			&flat.Code,
-			&flat.Plog,
-			&flat.ManualBlock,
-			&flat.AutoBlock,
-			&flat.AdminBlock,
-			&flat.OpenCode,
-			&flat.AutoOpen,
-			&flat.WhiteRabbit,
-			&flat.SipEnabled,
-			&flat.SipPassword,
-			&flat.LastOpened,
-			&flat.CmsEnabled,
-			&flat.Contract,
-			&flat.Login,
-			&flat.Password,
-			&flat.Cars,
-			&flat.SubscribersLimit,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan flat: %w", err)
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			r.logger.Error("Failed to scan house_flat_id", "error", err)
+			return nil, fmt.Errorf("scan failed: %w", err)
 		}
-		flats = append(flats, flat)
+		flatIDs = append(flatIDs, id)
 	}
 
-	if len(flats) == 0 {
-		return nil, fmt.Errorf("no flats found for %s = %s", by, param)
+	if len(flatIDs) == 0 {
+		r.logger.Debug("No flats found for RFID", "rfid", rfid)
+		return nil, nil
 	}
 
-	return flats, nil
+	return flatIDs, nil
 }
 
 /**
