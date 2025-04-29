@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/kulakoff/event-server-go/internal/config"
 	"github.com/kulakoff/event-server-go/internal/handlers"
@@ -10,9 +15,6 @@ import (
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"github.com/kulakoff/event-server-go/internal/utils"
-	"log/slog"
-	"os"
-	"time"
 )
 
 func main() {
@@ -274,6 +276,13 @@ func test() {
 	if err != nil {
 		logger.Warn("Error loading spam filters", "error", err)
 	}
+
+	//
+	res, _ := repo.Households.GetFlatIDsByRFID(context.Background(), "00000004030201")
+	logger.Debug("GetFlatsByRFID res >", "res", res[0])
+
+	entrance, err := repo.Households.GetEntrance(context.Background(), 1, 0)
+	logger.Debug("GetEntrance debug", "result", entrance)
 
 	// ----- Beward syslog_custom server
 	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo)

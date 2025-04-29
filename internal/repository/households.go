@@ -19,7 +19,7 @@ type HouseHoldRepository interface {
 	GetDomophoneIDByIP(ctx context.Context, ip string) (int, error)
 	GetEntrance(ctx context.Context, domophoneId, output int) (*models.HouseEntrance, error)
 	GetDomophone(ctx context.Context, by, p string) (*models.Domophone, error)
-	GetFlatsByRFID(ctx context.Context, rfid string) ([]int, error)
+	GetFlatIDsByRFID(ctx context.Context, rfid string) ([]int, error)
 }
 
 type HouseholdRepositoryImpl struct {
@@ -219,7 +219,7 @@ func (r *HouseholdRepositoryImpl) GetDomophone(ctx context.Context, by string, p
 	return &domophone, nil
 }
 
-func (r *HouseholdRepositoryImpl) GetFlatsByRFID(ctx context.Context, rfid string) ([]int, error) {
+func (r *HouseholdRepositoryImpl) GetFlatIDsByRFID(ctx context.Context, rfid string) ([]int, error) {
 	r.logger.Debug("GetFlatsByRFID RUN >")
 	query := `
 		SELECT house_flat_id 

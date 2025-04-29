@@ -53,7 +53,7 @@ func (r *CameraRepositoryImpl) GetStreamByIP(ctx context.Context, ip string) (*m
 
 func (r *CameraRepositoryImpl) GetCamera(ctx context.Context, id int) (*models.Camera, error) {
 	//TODO: implement me
-	r.logger.Debug("Getting camera by ID", "camera_id", id)
+	r.logger.Debug("GetCamera", "camera_id", id)
 
 	query := `
         SELECT camera_id, enabled, model, url, stream, credentials, name, dvr_stream, timezone, 
@@ -96,13 +96,12 @@ func (r *CameraRepositoryImpl) GetCamera(ctx context.Context, id int) (*models.C
 		r.logger.Error("Database query failed", "error", err, "camera_id", id)
 		return nil, fmt.Errorf("failed to query camera: %s", err)
 	}
-	r.logger.Debug("Getting camera by ID", "camera_id", id)
 	return &camera, nil
 }
 
 func (r *CameraRepositoryImpl) GetCameraByIP(ctx context.Context, ip string) (*models.Camera, error) {
 	//TODO: implement me
-	r.logger.Debug("Getting camera by IP", "camera_id", ip)
+	r.logger.Debug("GetCameraByIP", "camera_id", ip)
 
 	query := `
         SELECT camera_id, enabled, model, url, stream, credentials, name, dvr_stream, timezone, 
@@ -145,6 +144,5 @@ func (r *CameraRepositoryImpl) GetCameraByIP(ctx context.Context, ip string) (*m
 		r.logger.Error("Database query failed", "error", err, "camera_id", ip)
 		return nil, fmt.Errorf("failed to query camera: %s", err)
 	}
-	r.logger.Debug("Getting camera by IP", "camera_id", ip)
 	return &camera, nil
 }

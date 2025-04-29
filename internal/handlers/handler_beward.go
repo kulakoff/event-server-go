@@ -4,6 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/kulakoff/event-server-go/internal/repository"
 	"github.com/kulakoff/event-server-go/internal/services/backend"
@@ -11,11 +17,6 @@ import (
 	"github.com/kulakoff/event-server-go/internal/storage"
 	"github.com/kulakoff/event-server-go/internal/syslog_custom"
 	"github.com/kulakoff/event-server-go/internal/utils"
-	"log/slog"
-	"net"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // BewardHandler handles messages specific to Beward panels
@@ -73,21 +74,21 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		- count open by frid key
 	*/
 
-	// get timestamp
+	// 1 ----- make event timestamp
 	// FIXME: load location from system or config
 	location, _ := time.LoadLocation("Europe/Moscow")
 	now := time.Now().In(location).Truncate(time.Second)
 
-	// filter message
+	// 2 ----- filter message
 	if h.FilterMessage(message.Message) {
 		// FIXME: remove DEBUG
 		//h.logger.Debug("HandleMessage || Skipping message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
 		return
 	}
 
-	h.logger.Debug("HandleMessage || Processing Beward message", "srcIP", srcIP, "host", message.HostName, "message", message.Message)
+	h.logger.Debug("HandleMessage || Processing Beward message", "ip", srcIP, "host", message.HostName, "message", message.Message)
 
-	// ----- storage message
+	// 3 ----- storage message
 	var host string
 	// use host ip from syslog message
 	if net.ParseIP(message.HostName) != nil && message.HostName != "127.0.0.1" && srcIP != message.HostName {
@@ -103,18 +104,20 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		Unit:  "beward",
 		Msg:   message.Message,
 	}
+
+	// convert JSON to string
 	storageMessageJson, err := json.Marshal(storageMessage)
 	if err != nil {
 		h.logger.Warn("Failed to marshal storage message", "error", err)
 	}
 
-	// ----- send syslog message to remote storage
+	// 4 ----- send syslog message to remote storage
 	h.storage.Insert("syslog", string(storageMessageJson))
 
 	// --------------------
 	// Implement Beward-specific message processing here
 	// Track debug msg
-	if strings.Contains(message.Message, "cancel button") {
+	if strings.Contains(message.Message, "cancel button") || strings.Contains(message.Message, "Emulating Cancel button press!") {
 		h.HandleDebug(&now, host, message.Message)
 	}
 
@@ -140,11 +143,13 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 	if strings.Contains(message.Message, "Opening door by code") {
 		h.HandleOpenByCode(&now, host, message.Message)
 	}
+
 	// Tracks open door by RFID key
 	if strings.Contains(message.Message, "Opening door by RFID") ||
 		strings.Contains(message.Message, "Opening door by external RFID") {
 		h.HandleOpenByRFID(&now, host, message.Message)
 	}
+
 	// Tracks open door by button
 	if strings.Contains(message.Message, "door button pressed") {
 		h.HandleOpenByButton(&now, host, message.Message)
@@ -176,7 +181,7 @@ func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
 func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host string, motionActive bool) {
 	// implement motion detection logic
 	// get streamId by intercom IP and call to API FRS. message motion start or stop
-	h.logger.Debug("Motion detect process", "host", host, "motionActive", motionActive)
+	h.logger.Debug("HandleMotionDetection", "host", host, "motionActive", motionActive)
 	/**
 	TODO:
 		1 get stream by ip
@@ -272,7 +277,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		h.logger.Warn("Failed to get domophone", "error", err)
 	}
 
-	entrance, err := h.repo.Households.GetEntrace(context.Background(), domophone.HouseDomophoneID, door)
+	entrance, err := h.repo.Households.GetEntrance(context.Background(), domophone.HouseDomophoneID, door)
 	if err != nil {
 		h.logger.Warn("Failed to get entrance", "error", err)
 	}
@@ -488,7 +493,7 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	}
 
 	// get entrance
-	entrance, err := h.repo.Households.GetEntrace(context.Background(), domophone.HouseDomophoneID, door)
+	entrance, err := h.repo.Households.GetEntrance(context.Background(), domophone.HouseDomophoneID, door)
 	if err != nil {
 		h.logger.Warn("Failed to get entrance", "error", err)
 	}
@@ -501,6 +506,7 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 
 	// check FRS enabled
 	if *camera.FRS != "-" {
+		h.logger.Debug("HandleDebug, FRS enabled")
 		frs = true
 	}
 
@@ -538,12 +544,39 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	// 9
 	eventGUIDv4 := uuid.New().String()
 	imageGUIDv4 := utils.ToGUIDv4(fileId)
-	fileIDFromGUID, _ := utils.FromGUIDv4(imageGUIDv4)
-	h.logger.Debug("DEBUG", "eventGUIDv4", eventGUIDv4)
-	h.logger.Debug("DEBUG", "imageGUIDv4", imageGUIDv4)
-	h.logger.Debug("DEBUG", "from guid", fileIDFromGUID)
 
-	res, _ := h.repo.Households.GetFlats(context.Background(), "rfid", fakeRFID)
-	h.logger.Debug("FLATS by rfid >>", "result", res)
+	flatList, _ := h.repo.Households.GetFlatIDsByRFID(context.Background(), fakeRFID)
 
+	plogData := map[string]interface{}{
+		"date":       timestamp.Unix(),
+		"event_uuid": eventGUIDv4,
+		"hidden":     0,
+		"image_uuid": imageGUIDv4,
+		"flat_id":    flatList[0],
+		"domophone": map[string]interface{}{
+			"camera_id":             camera.CameraID,
+			"domophone_description": entrance.Entrance,
+			"domophone_id":          domophone.HouseDomophoneID,
+			"domophone_output":      entrance.DomophoneOutput,
+			"entrance_id":           entrance.HouseEntranceID,
+			"house_id":              entrance.AddressHouseID,
+		},
+		"event":   Event.OpenByKey,
+		"opened":  1, // bool
+		"face":    map[string]interface{}{},
+		"rfid":    fakeRFID,
+		"code":    "",
+		"phones":  map[string]interface{}{},
+		"preview": 1, // 0 no image, 1 - image from DVR, 2 - image from FRS
+	}
+
+	plogDataString, err := json.Marshal(plogData)
+	if err != nil {
+		h.logger.Debug("Failed marshal JSON")
+	}
+
+	err = h.storage.Insert("plog", string(plogDataString))
+	if err != nil {
+		fmt.Println("INSERT ERR", err)
+	}
 }
