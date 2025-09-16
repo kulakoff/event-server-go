@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	handlers2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/handlers"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
+	storage2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/storage"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/syslog_custom"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"log/slog"
 	"os"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kulakoff/event-server-go/internal/config"
-	"github.com/kulakoff/event-server-go/internal/handlers"
-	"github.com/kulakoff/event-server-go/internal/repository"
-	"github.com/kulakoff/event-server-go/internal/storage"
-	"github.com/kulakoff/event-server-go/internal/syslog_custom"
-	"github.com/kulakoff/event-server-go/internal/utils"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 )
 
 func main() {
@@ -36,21 +36,21 @@ func startServer() {
 
 	// clickhouse init
 	chDsn := cfg.Clickhouse
-	ch, err := storage.NewClickhouseHttpClient(logger, &chDsn)
+	ch, err := storage2.NewClickhouseHttpClient(logger, &chDsn)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
 	}
 
 	// mongodb init
-	mongo, err := storage.NewMongoDb(logger, cfg.MongoDb)
+	mongo, err := storage2.NewMongoDb(logger, cfg.MongoDb)
 	if err != nil {
 		logger.Error("Error init MongoDB", "error", err)
 		os.Exit(1)
 	}
 
 	// postgres init
-	psqlStorage, err := storage.NewPSQLStorage(logger, cfg.Postgres)
+	psqlStorage, err := storage2.NewPSQLStorage(logger, cfg.Postgres)
 	if err != nil {
 		logger.Error("Error init PSQLStorage", "error", err)
 		os.Exit(1)
@@ -85,12 +85,12 @@ func startServer() {
 	}
 
 	// ----- Beward syslog_custom server
-	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo)
+	bewardHandler := handlers2.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo)
 	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
 	go bewardServer.Start()
 
 	// ----- Qtech syslog_custom server
-	qtechHandler := handlers.NewQtechHandler(logger, spamFilers.Qtech, ch, mongo, repo)
+	qtechHandler := handlers2.NewQtechHandler(logger, spamFilers.Qtech, ch, mongo, repo)
 	qtechServer := syslog_custom.New(cfg.Hw.Qtech.Port, "Qtech", logger, qtechHandler)
 	go qtechServer.Start()
 
@@ -111,7 +111,7 @@ func todo() {
 
 	// clickhouse init
 	chDsn := cfg.Clickhouse
-	ch, err := storage.NewClickhouse(logger, &chDsn)
+	ch, err := storage2.NewClickhouse(logger, &chDsn)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
@@ -174,7 +174,7 @@ func todo2() {
 	}
 
 	// clickhouse init
-	chClient, err := storage.NewClickhouseHttpClient(logger, &cfg.Clickhouse)
+	chClient, err := storage2.NewClickhouseHttpClient(logger, &cfg.Clickhouse)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
@@ -247,21 +247,21 @@ func test() {
 	}
 
 	// clickhouse init
-	ch, err := storage.NewClickhouseHttpClient(logger, &cfg.Clickhouse)
+	ch, err := storage2.NewClickhouseHttpClient(logger, &cfg.Clickhouse)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
 	}
 
 	// mongodb init
-	mongo, err := storage.NewMongoDb(logger, cfg.MongoDb)
+	mongo, err := storage2.NewMongoDb(logger, cfg.MongoDb)
 	if err != nil {
 		logger.Error("Error init MongoDB", "error", err)
 		os.Exit(1)
 	}
 
 	// postgres init
-	psqlStorage, err := storage.NewPSQLStorage(logger, cfg.Postgres)
+	psqlStorage, err := storage2.NewPSQLStorage(logger, cfg.Postgres)
 	if err != nil {
 		logger.Error("Error init PSQLStorage", "error", err)
 		os.Exit(1)
@@ -285,7 +285,7 @@ func test() {
 	logger.Debug("GetEntrance debug", "result", entrance)
 
 	// ----- Beward syslog_custom server
-	bewardHandler := handlers.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo)
+	bewardHandler := handlers2.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo)
 	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
 	go bewardServer.Start()
 

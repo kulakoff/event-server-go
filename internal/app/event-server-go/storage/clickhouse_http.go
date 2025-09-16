@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/kulakoff/event-server-go/internal/config"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 	"log/slog"
 	"net/http"
 	"net/url"

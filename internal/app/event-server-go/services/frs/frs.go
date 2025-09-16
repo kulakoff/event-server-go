@@ -3,7 +3,7 @@ package frs
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kulakoff/event-server-go/internal/utils"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"time"
 )
 

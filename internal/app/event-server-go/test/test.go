@@ -2,9 +2,9 @@ package test
 
 import (
 	"fmt"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/storage"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"github.com/kulakoff/event-server-go/internal/config"
-	"github.com/kulakoff/event-server-go/internal/storage"
-	"github.com/kulakoff/event-server-go/internal/utils"
 	"log/slog"
 	"os"
 	"time"

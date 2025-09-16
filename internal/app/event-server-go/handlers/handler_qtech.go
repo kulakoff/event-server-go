@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"github.com/kulakoff/event-server-go/internal/repository"
-	"github.com/kulakoff/event-server-go/internal/storage"
-	"github.com/kulakoff/event-server-go/internal/syslog_custom"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
+	storage2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/storage"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/syslog_custom"
 	"log/slog"
 	"strings"
 )
@@ -12,13 +12,13 @@ import (
 type QtechHandler struct {
 	logger    *slog.Logger
 	spamWords []string
-	storage   *storage.ClickhouseHttpClient
-	fsFiles   *storage.MongoHandler
+	storage   *storage2.ClickhouseHttpClient
+	fsFiles   *storage2.MongoHandler
 	repo      *repository.PostgresRepository
 }
 
 // NewQtechHandler creates a new QtechHandler
-func NewQtechHandler(logger *slog.Logger, filters []string, storage *storage.ClickhouseHttpClient, mongo *storage.MongoHandler, repo *repository.PostgresRepository) *QtechHandler {
+func NewQtechHandler(logger *slog.Logger, filters []string, storage *storage2.ClickhouseHttpClient, mongo *storage2.MongoHandler, repo *repository.PostgresRepository) *QtechHandler {
 	return &QtechHandler{
 		logger:    logger,
 		spamWords: filters,

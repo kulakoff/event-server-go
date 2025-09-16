@@ -1,7 +1,7 @@
 package draft
 
 import (
-	"github.com/kulakoff/event-server-go/internal/utils"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"log"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/kulakoff/event-server-go/internal/config"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 	"log/slog"
 	"strconv"
 	"time"

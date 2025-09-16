@@ -1,8 +1,8 @@
 package plog
 
 import (
-	"github.com/kulakoff/event-server-go/internal/utils"
-	"github.com/kulakoff/event-server-go/internal/utils/screenshot"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils/screenshot"
 	"log/slog"
 	"os"
 	"strconv"

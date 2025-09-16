@@ -4,6 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/services/backend"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/services/frs"
+	storage2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/storage"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/syslog_custom"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"log/slog"
 	"net"
 	"strconv"
@@ -11,20 +17,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kulakoff/event-server-go/internal/repository"
-	"github.com/kulakoff/event-server-go/internal/services/backend"
-	"github.com/kulakoff/event-server-go/internal/services/frs"
-	"github.com/kulakoff/event-server-go/internal/storage"
-	"github.com/kulakoff/event-server-go/internal/syslog_custom"
-	"github.com/kulakoff/event-server-go/internal/utils"
 )
 
 // BewardHandler handles messages specific to Beward panels
 type BewardHandler struct {
 	logger    *slog.Logger
 	spamWords []string
-	storage   *storage.ClickhouseHttpClient
-	fsFiles   *storage.MongoHandler
+	storage   *storage2.ClickhouseHttpClient
+	fsFiles   *storage2.MongoHandler
 	repo      *repository.PostgresRepository
 }
 
@@ -40,8 +40,8 @@ type OpenDoorMsg struct {
 func NewBewardHandler(
 	logger *slog.Logger,
 	filters []string,
-	storage *storage.ClickhouseHttpClient,
-	mongo *storage.MongoHandler,
+	storage *storage2.ClickhouseHttpClient,
+	mongo *storage2.MongoHandler,
 	repo *repository.PostgresRepository) *BewardHandler {
 	return &BewardHandler{
 		logger:    logger,
@@ -97,7 +97,7 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		host = srcIP
 	}
 
-	storageMessage := storage.SyslogStorageMessage{
+	storageMessage := storage2.SyslogStorageMessage{
 		Date:  strconv.FormatInt(time.Now().Unix(), 10),
 		Ip:    host,
 		SubId: "",

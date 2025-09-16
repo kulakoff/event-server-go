@@ -24,7 +24,7 @@ func NewPostgresRepository(db *pgxpool.Pool, logger *slog.Logger) (*PostgresRepo
 		return nil, fmt.Errorf("could not connect to database: %w", err)
 	}
 
-	logger.Info("postgres repository initialized")
+	logger.Info("Postgres repository initialized")
 
 	repo := &PostgresRepository{
 		db:     db,

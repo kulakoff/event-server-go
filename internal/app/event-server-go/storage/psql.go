@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/kulakoff/event-server-go/internal/config"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 	"log/slog"
 	"time"
 )

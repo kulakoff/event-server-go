@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository/models"
 	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/kulakoff/event-server-go/internal/repository/models"
 )
 
 type HouseHoldRepository interface {
