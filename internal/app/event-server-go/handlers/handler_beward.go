@@ -155,7 +155,14 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 		h.HandleOpenByButton(&now, host, message.Message)
 	}
 
-	// Tracks calls
+	// TODO: implement me
+	// Tracks alarm button
+	if strings.Contains(message.Message, "Intercom break in detected") {
+		h.logger.Debug("processing not implemented", "msg", message.Message)
+	}
+
+	// TODO: implement me
+	// 		- Tracks calls
 }
 
 // FIXME:
@@ -353,7 +360,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	if err != nil {
 		h.logger.Debug("FRS GetBestQuality", "err", err)
 	} else if frsResp != nil {
-		h.logger.Debug("FRS GetBestQuality OK", "screenshot", frsResp.Data.ScreenshotURL)
+		h.logger.Debug("FRS GetBestQuality OK", "screenshot", frsResp.Data.Screenshot)
 	} else {
 		h.logger.Debug("FRS GetBestQuality no frame", "err", err)
 	}
@@ -363,7 +370,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	// test | replace hostname in url
 	var imageUrl string
 	if frsResp != nil {
-		imageUrl = frsResp.Data.ScreenshotURL
+		imageUrl = frsResp.Data.Screenshot
 	}
 	imageUrl = strings.Replace(imageUrl, "localhost", "rbt-demo.lanta.me", -1)
 
@@ -485,6 +492,8 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	rbtAPI := "https://rbt-demo.lanta.me:55544/internal"
 	frs := false
 	fakeRFID := "00000004030201"
+	var faceData map[string]interface{}
+	preview := 1
 
 	// get domophone
 	domophone, err := h.repo.Households.GetDomophone(context.Background(), "ip", host)
@@ -521,10 +530,18 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	if frs {
 		h.logger.Debug("HandleMessage | HandleDebug | FRS enabled")
 		bqResponse, _ := utils.GetBestQuality(camera.CameraID, *timestamp)
+		h.logger.Debug("FRS BEST bq response", "response", bqResponse)
 		if bqResponse != nil {
 			camScreenShot = nil
+			faceData = map[string]interface{}{
+				"left":   bqResponse.Data.Left,
+				"top":    bqResponse.Data.Top,
+				"width":  bqResponse.Data.Width,
+				"height": bqResponse.Data.Height,
+			}
+			preview = 2
 			h.logger.Debug("HandleMessage | HandleDebug | get img from FRS")
-			camScreenShot, err = utils.DownloadFile(bqResponse.Data.ScreenshotURL)
+			camScreenShot, err = utils.DownloadFile(bqResponse.Data.Screenshot)
 		}
 	}
 
@@ -563,12 +580,16 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 		},
 		"event":   Event.OpenByKey,
 		"opened":  1, // bool
-		"face":    map[string]interface{}{},
+		"face":    faceData,
 		"rfid":    fakeRFID,
 		"code":    "",
 		"phones":  map[string]interface{}{},
-		"preview": 1, // 0 no image, 1 - image from DVR, 2 - image from FRS
+		"preview": preview, // 0 no image, 1 - image from DVR, 2 - image from FRS
 	}
+
+	// TODO: add face data from frs
+	// from frs response  example bqResponse:
+	// {"code":"200","message":"Request completed successfully","data":{"screenshot":"https://rbt-demo.lanta.me/.well-known/frs/screenshots/group_3/d/b/1/4/db141e98cbe2437f83c41e7b7a71454f.jpg","left":554,"top":259,"with":0,"height":205}}}
 
 	plogDataString, err := json.Marshal(plogData)
 	if err != nil {

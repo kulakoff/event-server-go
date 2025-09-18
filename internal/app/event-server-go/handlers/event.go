@@ -9,6 +9,7 @@ type Events struct {
 	OpenByCode   int
 	OpenByCall   int
 	OpenByButton int
+	OpenByPlate  int
 }
 
 var Event Events
@@ -23,5 +24,6 @@ func init() {
 		OpenByCode:   6,
 		OpenByCall:   7,
 		OpenByButton: 8,
+		OpenByPlate:  9,
 	}
 }

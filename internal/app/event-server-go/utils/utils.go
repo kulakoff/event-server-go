@@ -16,18 +16,18 @@ const (
 	BearerTokenExample = "fbc55e76-848f-417e-a0c8-809646a5a4f8"
 )
 
-type GetBestQualityData struct {
-	ScreenshotURL string `json:"screenshotUrl"`
-	Left          int    `json:"left"`
-	Top           int    `json:"top"`
-	With          int    `json:"with"`
-	Height        int    `json:"height"`
+type FRSFaceData struct {
+	Screenshot string `json:"screenshot"`
+	Left       int    `json:"left"`
+	Top        int    `json:"top"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
 }
 
-type GetBestQualityResponse struct {
-	Code    string             `json:"code"`
-	Message string             `json:"message"`
-	Data    GetBestQualityData `json:"data"`
+type FRSBestQualityResponse struct {
+	Code    string       `json:"code"`
+	Message string       `json:"message"`
+	Data    *FRSFaceData `json:"data"`
 }
 
 func SendPostRequest(url string, headers map[string]string, payload interface{}) ([]byte, int, error) {
@@ -64,7 +64,7 @@ func SendPostRequest(url string, headers map[string]string, payload interface{})
 	return body, res.StatusCode, nil
 }
 
-func GetBestQuality(streamId int, timestamp time.Time) (*GetBestQualityResponse, error) {
+func GetBestQuality(streamId int, timestamp time.Time) (*FRSBestQualityResponse, error) {
 	url := "http://rbt-demo.lanta.me:12345/frs/api/bestQuality"
 
 	// make headers
@@ -93,7 +93,7 @@ func GetBestQuality(streamId int, timestamp time.Time) (*GetBestQualityResponse,
 
 	// Handle successful response (status 200)
 	if statusCode == 200 {
-		var bestQualityResp GetBestQualityResponse
+		var bestQualityResp FRSBestQualityResponse
 		err = json.Unmarshal(response, &bestQualityResp)
 		if err != nil {
 			fmt.Println("error decoding response", err)
