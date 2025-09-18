@@ -7,16 +7,25 @@ import (
 )
 
 type Config struct {
-	Topology struct {
-		NAT bool `json:"nat"`
-	}
-	Clickhouse ClickhouseConfig `json:"clickhouse"`
-	MongoDb    *MongoDbConfig   `json:"mongodb"`
-	Postgres   *PostgresConfig  `json:"postgres"`
-	API        struct {
-		Internal string `json:"internal"`
-	}
-	Hw HwConfig `json:"hw"`
+	Topology   *Topology         `json:"topology"`
+	Clickhouse *ClickhouseConfig `json:"clickhouse"`
+	MongoDb    *MongoDbConfig    `json:"mongodb"`
+	Postgres   *PostgresConfig   `json:"postgres"`
+	RbtApi     *RbtApi           `json:"rbtApi"`
+	FrsApi     *FrsApi           `json:"frsApi"`
+	Hw         *HwConfig         `json:"hw"`
+}
+
+type Topology struct {
+	NAT bool `json:"nat"`
+}
+type RbtApi struct {
+	Internal string `json:"internal"`
+}
+
+type FrsApi struct {
+	URL   string `json:"url"`
+	Token string `json:"token"`
 }
 
 type PanelConfig struct {

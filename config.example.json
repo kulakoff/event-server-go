@@ -21,8 +21,12 @@
     "password": "rbt",
     "sslmode": "disabled"
   },
-  "api": {
+  "rbtApi": {
     "internal": "http://127.0.0.1/internal"
+  },
+  "frsApi": {
+    "url": "http://127.0.0.1:12345",
+    "token": "EXAMPLE_BEARER_TOKEN"
   },
   "hw": {
     "beward": {

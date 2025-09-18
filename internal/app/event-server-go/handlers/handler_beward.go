@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 )
 
 // BewardHandler handles messages specific to Beward panels
@@ -26,6 +27,8 @@ type BewardHandler struct {
 	storage   *storage2.ClickhouseHttpClient
 	fsFiles   *storage2.MongoHandler
 	repo      *repository.PostgresRepository
+	rbtApi    *config.RbtApi
+	frsApi    *config.FrsApi
 }
 
 type OpenDoorMsg struct {
@@ -42,13 +45,18 @@ func NewBewardHandler(
 	filters []string,
 	storage *storage2.ClickhouseHttpClient,
 	mongo *storage2.MongoHandler,
-	repo *repository.PostgresRepository) *BewardHandler {
+	repo *repository.PostgresRepository,
+	rbtApi *config.RbtApi,
+	frsApi *config.FrsApi,
+) *BewardHandler {
 	return &BewardHandler{
 		logger:    logger,
 		spamWords: filters,
 		storage:   storage,
 		fsFiles:   mongo,
 		repo:      repo,
+		rbtApi:    rbtApi,
+		frsApi:    frsApi,
 	}
 }
 
@@ -489,8 +497,9 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	h.logger.Debug("HandleMessage | HandleDebug", "timestamp", timestamp)
 	//dummy data
 	door := 0
-	rbtAPI := "https://rbt-demo.lanta.me:55544/internal"
-	frs := false
+	//rbtAPI := "https://rbt-demo.lanta.me:55544/internal"
+	rbtAPI := h.rbtApi.Internal
+	frsEnabled := false
 	fakeRFID := "00000004030201"
 	var faceData map[string]interface{}
 	preview := 1
@@ -516,7 +525,7 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	// check FRS enabled
 	if *camera.FRS != "-" {
 		h.logger.Debug("HandleDebug, FRS enabled")
-		frs = true
+		frsEnabled = true
 	}
 
 	// 01 - get screenshot from domophone camera
@@ -527,9 +536,9 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	}
 
 	// 02 get screenshot from FRS
-	if frs {
+	if frsEnabled {
 		h.logger.Debug("HandleMessage | HandleDebug | FRS enabled")
-		bqResponse, _ := utils.GetBestQuality(camera.CameraID, *timestamp)
+		bqResponse, _ := utils.GetBestQuality(h.frsApi, camera.CameraID, *timestamp)
 		h.logger.Debug("FRS BEST bq response", "response", bqResponse)
 		if bqResponse != nil {
 			camScreenShot = nil

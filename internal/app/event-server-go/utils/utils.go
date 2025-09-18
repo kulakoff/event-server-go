@@ -4,16 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
-)
-
-const (
-	BearerTokenExample = "fbc55e76-848f-417e-a0c8-809646a5a4f8"
 )
 
 type FRSFaceData struct {
@@ -64,13 +61,13 @@ func SendPostRequest(url string, headers map[string]string, payload interface{})
 	return body, res.StatusCode, nil
 }
 
-func GetBestQuality(streamId int, timestamp time.Time) (*FRSBestQualityResponse, error) {
-	url := "http://rbt-demo.lanta.me:12345/frs/api/bestQuality"
+func GetBestQuality(frsApi config.FrsApi, streamId int, timestamp time.Time) (*FRSBestQualityResponse, error) {
+	url := frsApi.URL + "/frs/api/bestQuality"
 
 	// make headers
 	headers := map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer " + BearerTokenExample,
+		"Authorization": "Bearer " + frsApi.Token,
 	}
 
 	// make payload

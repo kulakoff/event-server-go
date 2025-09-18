@@ -247,7 +247,7 @@ func test() {
 	}
 
 	// clickhouse init
-	ch, err := storage2.NewClickhouseHttpClient(logger, &cfg.Clickhouse)
+	ch, err := storage2.NewClickhouseHttpClient(logger, cfg.Clickhouse)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
@@ -285,7 +285,7 @@ func test() {
 	logger.Debug("GetEntrance debug", "result", entrance)
 
 	// ----- Beward syslog_custom server
-	bewardHandler := handlers2.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo)
+	bewardHandler := handlers2.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo, cfg.FrsApi, cfg.RbtApi)
 	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
 	go bewardServer.Start()
 
