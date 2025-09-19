@@ -61,7 +61,7 @@ func SendPostRequest(url string, headers map[string]string, payload interface{})
 	return body, res.StatusCode, nil
 }
 
-func GetBestQuality(frsApi config.FrsApi, streamId int, timestamp time.Time) (*FRSBestQualityResponse, error) {
+func GetBestQuality(frsApi *config.FrsApi, streamId int, timestamp time.Time) (*FRSBestQualityResponse, error) {
 	url := frsApi.URL + "/frs/api/bestQuality"
 
 	// make headers

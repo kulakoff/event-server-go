@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
-	"github.com/kulakoff/event-server-go/internal/app/event-server-go/services/backend"
-	"github.com/kulakoff/event-server-go/internal/app/event-server-go/services/frs"
-	storage2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/storage"
-	"github.com/kulakoff/event-server-go/internal/app/event-server-go/syslog_custom"
-	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"log/slog"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/services/frs"
+	storage2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/storage"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/syslog_custom"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 
 	"github.com/google/uuid"
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
@@ -224,6 +224,11 @@ func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message str
 func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message string) {
 	// implement open door by RFID key logic
 	h.logger.Debug("Open door by RFID")
+	frsEnabled := false
+	isExternalReader := false
+	var faceData map[string]interface{}
+	preview := 1
+
 	/**
 	TODO:
 		1 get external reader
@@ -238,7 +243,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	*/
 
 	// ----- 1
-	isExternalReader := false
+	//isExternalReader := false
 	if strings.Contains(message, "external") {
 		isExternalReader = true
 	}
@@ -287,11 +292,13 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	// ----- 5
 	// TODO: implement get "streamName" and "streamID" by ip intercom
 
+	// get domophone
 	domophone, err := h.repo.Households.GetDomophone(context.Background(), "ip", host)
 	if err != nil {
 		h.logger.Warn("Failed to get domophone", "error", err)
 	}
 
+	// get entrance
 	entrance, err := h.repo.Households.GetEntrance(context.Background(), domophone.HouseDomophoneID, door)
 	if err != nil {
 		h.logger.Warn("Failed to get entrance", "error", err)
@@ -302,12 +309,12 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 		return
 	}
 
+	// get entrance camera
 	camera, err := h.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
 	if err != nil {
 		h.logger.Warn("Failed to get camera", "error", err)
 	}
 
-	// frs enaled - get
 	/**
 	TODO:
 		get screenshot from camera
@@ -315,15 +322,14 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 			if GetBestQuality result - use FRS screenshot
 			if not GetBestQuality result - use first camera screen
 	*/
-	frsEnabled := false
+	// check FRS enabled
 	if *camera.FRS != "-" {
+		h.logger.Debug("HandleDebug, FRS enabled")
 		frsEnabled = true
 	}
 	h.logger.Debug("Open by RFID", "frsEnabled >>", frsEnabled)
 
-	internalAPIURL := "https://rbt-demo.lanta.me:55544/internal"
-	_imageUrl := internalAPIURL + "/frs/camshot/" + strconv.Itoa(camera.CameraID)
-	h.logger.Debug("Open by RFID", "_imageUrl >>", _imageUrl)
+	rbtAPI := h.rbtApi.Internal
 
 	// download file from RBT
 	//_screenShot, err := utils.DownloadFile(_imageUrl)
@@ -354,118 +360,85 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	//	h.logger.Debug("Open by RFID", "DVR URL", camera.DVRStream)
 	//}
 
-	return
-	stream, err := backend.GetStremByIp(host)
-	if err != nil {
-		h.logger.Error("APICallToRBT", "err", err)
-	}
-	fakeTimestamp := "2024-10-02 10:44:15" // FIXME: change fake data
-	//fakeTimestamp = strconv.FormatInt(timestamp.Unix(), 10)
-	testTimestamp, _ := time.Parse(time.DateTime, fakeTimestamp)
+	// 01 - get screenshot from domophone camera
+	imgURL := rbtAPI + "/frs/camshot/" + strconv.Itoa(camera.CameraID)
+	h.logger.Debug("Open by RFID", "_imageUrl >>", imgURL)
 
-	// ----- 6
-	frsResp, err := utils.GetBestQuality(stream.ID, testTimestamp)
+	camScreenShot, err := utils.DownloadFile(imgURL)
 	if err != nil {
-		h.logger.Debug("FRS GetBestQuality", "err", err)
-	} else if frsResp != nil {
-		h.logger.Debug("FRS GetBestQuality OK", "screenshot", frsResp.Data.Screenshot)
-	} else {
-		h.logger.Debug("FRS GetBestQuality no frame", "err", err)
+		h.logger.Debug("RBT DownloadFile", "err", err)
 	}
-	// ----- 7 TODO skip
-	// ----- 8
 
-	// test | replace hostname in url
-	var imageUrl string
-	if frsResp != nil {
-		imageUrl = frsResp.Data.Screenshot
+	// 02 get screenshot from FRS
+	if frsEnabled {
+		h.logger.Debug("HandleMessage | HandleDebug | FRS enabled")
+		bqResponse, _ := utils.GetBestQuality(h.frsApi, camera.CameraID, *timestamp)
+		if bqResponse != nil {
+			h.logger.Debug("FRS BEST bq response", "response", bqResponse)
+
+			faceData = map[string]interface{}{
+				"left":   bqResponse.Data.Left,
+				"top":    bqResponse.Data.Top,
+				"width":  bqResponse.Data.Width,
+				"height": bqResponse.Data.Height,
+			}
+			preview = 2
+
+			h.logger.Debug("HandleMessage | HandleDebug | get img from FRS")
+			camScreenShot = nil
+			camScreenShot, err = utils.DownloadFile(bqResponse.Data.Screenshot)
+		}
 	}
-	imageUrl = strings.Replace(imageUrl, "localhost", "rbt-demo.lanta.me", -1)
 
 	metadata := map[string]interface{}{
-		"contentType": "image/jpg",
-		"expire":      int32(testTimestamp.Add(time.Hour * 24 * 30 * 6).Unix()),
-	}
-
-	// download file from FRS response
-	screenShot, err := utils.DownloadFile(imageUrl)
-	if err != nil {
-		h.logger.Debug("FRS DownloadFile", "err", err)
+		"contentType": "image/jpeg",
+		"expire":      int32(timestamp.Add(time.Hour * 24 * 30 * 6).Unix()),
 	}
 
 	// save data to MongoDb
-	fileId, err := h.fsFiles.SaveFile("camshot", metadata, screenShot)
+	fileId, err := h.fsFiles.SaveFile("camshot", metadata, camScreenShot)
 	if err != nil {
 		h.logger.Debug("MongoDB SaveFile", "err", err)
 	}
 	h.logger.Debug("MongoDB SaveFile", "fileId", fileId)
+	camScreenShot = nil
 
-	// ----- 9
-	eventGUIDv4 := uuid.New().String()    // generate event id format GUIDv4
-	imageGUIDv4 := utils.ToGUIDv4(fileId) // mongo file id to GUIDv4
-	flatId, err := backend.GetFlatGyRFID(rfidKey)
-	if err != nil {
-		h.logger.Debug("Failed fond flat by key", "err", err)
-	}
+	// 9
+	eventGUIDv4 := uuid.New().String()
+	imageGUIDv4 := utils.ToGUIDv4(fileId)
 
+	flatList, _ := h.repo.Households.GetFlatIDsByRFID(context.Background(), rfidKey)
+
+	// TODO: We're currently updating only one apartment out of the ones found.
+	//		Add processing to all apartments using this RFID key.
 	plogData := map[string]interface{}{
-		"date":       timestamp,
+		"date":       timestamp.Unix(),
 		"event_uuid": eventGUIDv4,
 		"hidden":     0,
 		"image_uuid": imageGUIDv4,
-		"flat_id":    flatId,
+		"flat_id":    flatList[0],
 		"domophone": map[string]interface{}{
-			"camera_id":             8,
-			"domophone_description": "✅ Подъезд Beward",
-			"domophone_id":          6,
-			"domophone_output":      0,
-			"entrance_id":           23,
-			"house_id":              11,
+			"camera_id":             camera.CameraID,
+			"domophone_description": entrance.Entrance,
+			"domophone_id":          domophone.HouseDomophoneID,
+			"domophone_output":      entrance.DomophoneOutput,
+			"entrance_id":           entrance.HouseEntranceID,
+			"house_id":              entrance.AddressHouseID,
 		},
 		"event":   Event.OpenByKey,
 		"opened":  1, // bool
-		"face":    "{}",
+		"face":    faceData,
 		"rfid":    rfidKey,
 		"code":    "",
-		"phones":  "{}",
-		"preview": 1, // 0 no image, 1 - image from DVR, 2 - image from FRS
+		"phones":  map[string]interface{}{},
+		"preview": preview, // 0 no image, 1 - image from DVR, 2 - image from FRS
 	}
-
-	//plogData := map[string]interface{}{
-	//	"date":       int32(now.Unix()),
-	//	"event_uuid": eventGUIDv4,
-	//	"hidden":     0,
-	//	"image_id":   imageGUIDv4,
-	//	"flat_id":    flatId,
-	//	"domophone": map[string]interface{}{
-	//		"camera_id":             8,
-	//		"domophone_description": "✅ Подъезд Beward",
-	//		"domophone_id":          6,
-	//		"domophone_output":      0,
-	//		"entrance_id":           23,
-	//		"house_id":              11,
-	//	},
-	//	"event":  5,
-	//	"opened": 1,
-	//	"face": map[string]interface{}{
-	//		"faceId": "17",
-	//		"height": 204,
-	//		"left":   529,
-	//		"top":    225,
-	//		"width":  160,
-	//	},
-	//	"rfid":    "",
-	//	"code":    "",
-	//	"phones":  map[string]interface{}{"user_phone": ""},
-	//	"preview": 2,
-	//}
 
 	plogDataString, err := json.Marshal(plogData)
 	if err != nil {
 		h.logger.Debug("Failed marshal JSON")
 	}
 
-	fmt.Println(string(plogDataString)) // FIXME: remove debug
 	err = h.storage.Insert("plog", string(plogDataString))
 	if err != nil {
 		fmt.Println("INSERT ERR", err)
@@ -539,9 +512,9 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	if frsEnabled {
 		h.logger.Debug("HandleMessage | HandleDebug | FRS enabled")
 		bqResponse, _ := utils.GetBestQuality(h.frsApi, camera.CameraID, *timestamp)
-		h.logger.Debug("FRS BEST bq response", "response", bqResponse)
 		if bqResponse != nil {
-			camScreenShot = nil
+			h.logger.Debug("FRS BEST bq response", "response", bqResponse)
+
 			faceData = map[string]interface{}{
 				"left":   bqResponse.Data.Left,
 				"top":    bqResponse.Data.Top,
@@ -549,7 +522,9 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 				"height": bqResponse.Data.Height,
 			}
 			preview = 2
+
 			h.logger.Debug("HandleMessage | HandleDebug | get img from FRS")
+			camScreenShot = nil
 			camScreenShot, err = utils.DownloadFile(bqResponse.Data.Screenshot)
 		}
 	}
