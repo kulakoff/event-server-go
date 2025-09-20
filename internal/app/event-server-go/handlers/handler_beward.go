@@ -616,8 +616,13 @@ func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message stri
 func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
 	h.logger.Debug("HandleMessage | HandleDebug", "timestamp", timestamp)
 
+	frsEnabled := false
+	preview := 1
+	rbtAPI := h.rbtApi.Internal
 	fakeMsg := "Opening door by code 55544, apartment 1"
 	message = fakeMsg
+	var faceData map[string]interface{}
+	door := 0 // main door usage digit code
 
 	// get code
 	parts := strings.SplitN(message, "code", 2)
@@ -650,5 +655,102 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	if err != nil {
 		h.logger.Warn("Failed to get entrance", "error", err)
 	}
+	h.logger.Debug("Successfully extracted entrance", "entrance", entrance)
 
+	if entrance.CameraID == nil {
+		h.logger.Warn("Failed to get camera id")
+		return
+	}
+
+	// get entrance camera
+	camera, err := h.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
+	if err != nil {
+		h.logger.Warn("Failed to get camera", "error", err)
+	}
+
+	// check FRS enabled
+	if *camera.FRS != "-" {
+		h.logger.Debug("HandleDebug, FRS enabled")
+		frsEnabled = true
+	}
+
+	// 01 - get screenshot from domophone camera
+	imgURL := rbtAPI + "/frs/camshot/" + strconv.Itoa(camera.CameraID)
+	camScreenShot, err := utils.DownloadFile(imgURL)
+	if err != nil {
+		h.logger.Debug("RBT DownloadFile", "err", err)
+	}
+
+	// 02 get screenshot from FRS
+	if frsEnabled {
+		h.logger.Debug("HandleMessage | HandleDebug | FRS enabled")
+		bqResponse, _ := utils.GetBestQuality(h.frsApi, camera.CameraID, *timestamp)
+		if bqResponse != nil {
+			h.logger.Debug("FRS BEST bq response", "response", bqResponse)
+
+			faceData = map[string]interface{}{
+				"left":   bqResponse.Data.Left,
+				"top":    bqResponse.Data.Top,
+				"width":  bqResponse.Data.Width,
+				"height": bqResponse.Data.Height,
+			}
+			preview = 2
+
+			h.logger.Debug("HandleMessage | HandleDebug | get img from FRS")
+			camScreenShot = nil
+			camScreenShot, err = utils.DownloadFile(bqResponse.Data.Screenshot)
+		}
+	}
+
+	metadata := map[string]interface{}{
+		"contentType": "image/jpeg",
+		"expire":      int32(timestamp.Add(time.Hour * 24 * 30 * 6).Unix()),
+	}
+
+	// save data to MongoDb
+	fileId, err := h.fsFiles.SaveFile("camshot", metadata, camScreenShot)
+	if err != nil {
+		h.logger.Debug("MongoDB SaveFile", "err", err)
+	}
+	h.logger.Debug("MongoDB SaveFile", "fileId", fileId)
+	camScreenShot = nil
+
+	// 9
+	eventGUIDv4 := uuid.New().String()
+	imageGUIDv4 := utils.ToGUIDv4(fileId)
+
+	flatList, _ := h.repo.Households.GetFlatIDsByCode(context.Background(), strconv.Itoa(code))
+
+	plogData := map[string]interface{}{
+		"date":       timestamp.Unix(),
+		"event_uuid": eventGUIDv4,
+		"hidden":     0,
+		"image_uuid": imageGUIDv4,
+		"flat_id":    flatList[0],
+		"domophone": map[string]interface{}{
+			"camera_id":             camera.CameraID,
+			"domophone_description": entrance.Entrance,
+			"domophone_id":          domophone.HouseDomophoneID,
+			"domophone_output":      entrance.DomophoneOutput,
+			"entrance_id":           entrance.HouseEntranceID,
+			"house_id":              entrance.AddressHouseID,
+		},
+		"event":   Event.OpenByCode,
+		"opened":  1, // bool
+		"face":    faceData,
+		"rfid":    "",
+		"code":    code,
+		"phones":  map[string]interface{}{},
+		"preview": preview, // 0 no image, 1 - image from DVR, 2 - image from FRS
+	}
+
+	plogDataString, err := json.Marshal(plogData)
+	if err != nil {
+		h.logger.Debug("Failed marshal JSON")
+	}
+
+	err = h.storage.Insert("plog", string(plogDataString))
+	if err != nil {
+		fmt.Println("INSERT ERR", err)
+	}
 }

@@ -20,6 +20,7 @@ type HouseHoldRepository interface {
 	GetEntrance(ctx context.Context, domophoneId, output int) (*models.HouseEntrance, error)
 	GetDomophone(ctx context.Context, by, p string) (*models.Domophone, error)
 	GetFlatIDsByRFID(ctx context.Context, rfid string) ([]int, error)
+	GetFlatIDsByCode(ctx context.Context, code string) ([]int, error)
 }
 
 type HouseholdRepositoryImpl struct {
@@ -264,6 +265,7 @@ func (r *HouseholdRepositoryImpl) GetFlatIDsByCode(ctx context.Context, code str
 	query := `
 		SELECT house_flat_id 
 		FROM houses_flats
+		WHERE open_code = $1
 		GROUP BY house_flat_id
 	`
 	r.logger.Debug("GetFlatIDsByCode query", "query", query, "rfid", code)
