@@ -219,6 +219,33 @@ func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host string,
 func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message string) {
 	// implement open door by code logic
 	h.logger.Debug("Open door by code", "host", host, "message", message)
+
+	fakeMsg := "Opening door by code 55544, apartment 1"
+	message = fakeMsg
+	// TODO: move get code to utils
+	// get code
+	parts := strings.SplitN(message, "code", 2)
+	if len(parts) < 2 {
+		h.logger.Error("Invalid message format - no content after 'code'", "message", message)
+		return
+	}
+
+	codePart := strings.SplitN(parts[1], ",", 2)[0]
+	codeStr := strings.TrimSpace(codePart)
+
+	code, err := strconv.Atoi(codeStr)
+	if err != nil {
+		h.logger.Error("Failed to convert code to integer",
+			"error", err,
+			"code_str", codeStr,
+			"message", message)
+		return
+	}
+
+	h.logger.Debug("Successfully extracted code", "code", code, "host", host)
+
+	// get flat by code and domophone ip
+	// TODO: update last usage code
 }
 
 func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message string) {
@@ -466,7 +493,7 @@ func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message strin
 	// implement call flow logic
 }
 
-func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
+func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message string) {
 	h.logger.Debug("HandleMessage | HandleDebug", "timestamp", timestamp)
 	//dummy data
 	door := 0
@@ -584,4 +611,29 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	if err != nil {
 		fmt.Println("INSERT ERR", err)
 	}
+}
+
+func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
+	h.logger.Debug("HandleMessage | HandleDebug", "timestamp", timestamp)
+
+	// get code
+	parts := strings.SplitN(message, "code", 2)
+	if len(parts) < 2 {
+		h.logger.Error("Invalid message format - no content after 'code'", "message", message)
+		return
+	}
+
+	codePart := strings.SplitN(parts[1], ",", 2)[0]
+	codeStr := strings.TrimSpace(codePart)
+
+	code, err := strconv.Atoi(codeStr)
+	if err != nil {
+		h.logger.Error("Failed to convert code to integer",
+			"error", err,
+			"code_str", codeStr,
+			"message", message)
+		return
+	}
+	h.logger.Debug("Successfully extracted code", "code", code, "host", host)
+
 }
