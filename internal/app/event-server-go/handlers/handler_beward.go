@@ -220,10 +220,14 @@ func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message str
 	// implement open door by code logic
 	h.logger.Debug("Open door by code", "host", host, "message", message)
 
-	fakeMsg := "Opening door by code 55544, apartment 1"
-	message = fakeMsg
-	// TODO: move get code to utils
+	frsEnabled := false
+	preview := 1
+	rbtAPI := h.rbtApi.Internal
+	var faceData map[string]interface{}
+	door := 0 // main door usage digit code
+
 	// get code
+	// TODO: move get code to utils
 	parts := strings.SplitN(message, "code", 2)
 	if len(parts) < 2 {
 		h.logger.Error("Invalid message format - no content after 'code'", "message", message)
@@ -241,8 +245,117 @@ func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message str
 			"message", message)
 		return
 	}
-
 	h.logger.Debug("Successfully extracted code", "code", code, "host", host)
+
+	// get domophone
+	domophone, err := h.repo.Households.GetDomophone(context.Background(), "ip", host)
+	if err != nil {
+		h.logger.Warn("Failed to get domophone", "error", err)
+	}
+
+	// get entrance
+	entrance, err := h.repo.Households.GetEntrance(context.Background(), domophone.HouseDomophoneID, door)
+	if err != nil {
+		h.logger.Warn("Failed to get entrance", "error", err)
+	}
+	h.logger.Debug("Successfully extracted entrance", "entrance", entrance)
+
+	if entrance.CameraID == nil {
+		h.logger.Warn("Failed to get camera id")
+		return
+	}
+
+	// get entrance camera
+	camera, err := h.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
+	if err != nil {
+		h.logger.Warn("Failed to get camera", "error", err)
+	}
+
+	// check FRS enabled
+	if *camera.FRS != "-" {
+		h.logger.Debug("HandleDebug, FRS enabled")
+		frsEnabled = true
+	}
+
+	// 01 - get screenshot from domophone camera
+	imgURL := rbtAPI + "/frs/camshot/" + strconv.Itoa(camera.CameraID)
+	camScreenShot, err := utils.DownloadFile(imgURL)
+	if err != nil {
+		h.logger.Debug("RBT DownloadFile", "err", err)
+	}
+
+	// 02 get screenshot from FRS
+	if frsEnabled {
+		h.logger.Debug("HandleMessage | HandleDebug | FRS enabled")
+		bqResponse, _ := utils.GetBestQuality(h.frsApi, camera.CameraID, *timestamp)
+		if bqResponse != nil {
+			h.logger.Debug("FRS BEST bq response", "response", bqResponse)
+
+			faceData = map[string]interface{}{
+				"left":   bqResponse.Data.Left,
+				"top":    bqResponse.Data.Top,
+				"width":  bqResponse.Data.Width,
+				"height": bqResponse.Data.Height,
+			}
+			preview = 2
+
+			h.logger.Debug("HandleMessage | HandleDebug | get img from FRS")
+			camScreenShot = nil
+			camScreenShot, err = utils.DownloadFile(bqResponse.Data.Screenshot)
+		}
+	}
+
+	metadata := map[string]interface{}{
+		"contentType": "image/jpeg",
+		"expire":      int32(timestamp.Add(time.Hour * 24 * 30 * 6).Unix()),
+	}
+
+	// save data to MongoDb
+	fileId, err := h.fsFiles.SaveFile("camshot", metadata, camScreenShot)
+	if err != nil {
+		h.logger.Debug("MongoDB SaveFile", "err", err)
+	}
+	h.logger.Debug("MongoDB SaveFile", "fileId", fileId)
+	camScreenShot = nil
+
+	// 9
+	eventGUIDv4 := uuid.New().String()
+	imageGUIDv4 := utils.ToGUIDv4(fileId)
+
+	flatList, _ := h.repo.Households.GetFlatIDsByCode(context.Background(), strconv.Itoa(code))
+
+	plogData := map[string]interface{}{
+		"date":       timestamp.Unix(),
+		"event_uuid": eventGUIDv4,
+		"hidden":     0,
+		"image_uuid": imageGUIDv4,
+		"flat_id":    flatList[0],
+		"domophone": map[string]interface{}{
+			"camera_id":             camera.CameraID,
+			"domophone_description": entrance.Entrance,
+			"domophone_id":          domophone.HouseDomophoneID,
+			"domophone_output":      entrance.DomophoneOutput,
+			"entrance_id":           entrance.HouseEntranceID,
+			"house_id":              entrance.AddressHouseID,
+		},
+		"event":   Event.OpenByCode,
+		"opened":  1, // bool
+		"face":    faceData,
+		"rfid":    "",
+		"code":    code,
+		"phones":  map[string]interface{}{},
+		"preview": preview, // 0 no image, 1 - image from DVR, 2 - image from FRS
+	}
+
+	plogDataString, err := json.Marshal(plogData)
+	if err != nil {
+		h.logger.Debug("Failed marshal JSON")
+	}
+
+	err = h.storage.Insert("plog", string(plogDataString))
+	if err != nil {
+		fmt.Println("INSERT ERR", err)
+	}
 
 	// get flat by code and domophone ip
 	// TODO: update last usage code
@@ -613,8 +726,8 @@ func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message stri
 	}
 }
 
-func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
-	h.logger.Debug("HandleMessage | HandleDebug", "timestamp", timestamp)
+func (h *BewardHandler) HandleDebugCode(timestamp *time.Time, host, message string) {
+	h.logger.Debug("HandleMessage | HandleDebugCode", "timestamp", timestamp)
 
 	frsEnabled := false
 	preview := 1
@@ -753,4 +866,8 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	if err != nil {
 		fmt.Println("INSERT ERR", err)
 	}
+}
+
+func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
+	h.logger.Debug("HandleMessage | HandleDebugCode", "timestamp", timestamp)
 }
