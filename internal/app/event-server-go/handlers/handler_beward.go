@@ -276,17 +276,17 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	}
 
 	// ----- 2
+	door := 0
+	if isExternalReader {
+		door = 1
+	}
+
+	// ----- 3
 	rfidKey := utils.ExtractRFIDKey(message)
 	if rfidKey != "" {
 		h.logger.Debug("RFID key found", "host", host, "rfid", rfidKey)
 	} else {
 		h.logger.Warn("RFID key not found", "host", host)
-	}
-
-	// ----- 3
-	door := 0
-	if isExternalReader {
-		door = 1
 	}
 
 	h.logger.Debug("Open by RFID", "door", door, "rfid", rfidKey)
@@ -616,6 +616,9 @@ func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message stri
 func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
 	h.logger.Debug("HandleMessage | HandleDebug", "timestamp", timestamp)
 
+	fakeMsg := "Opening door by code 55544, apartment 1"
+	message = fakeMsg
+
 	// get code
 	parts := strings.SplitN(message, "code", 2)
 	if len(parts) < 2 {
@@ -635,5 +638,17 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 		return
 	}
 	h.logger.Debug("Successfully extracted code", "code", code, "host", host)
+
+	// get domophone
+	domophone, err := h.repo.Households.GetDomophone(context.Background(), "ip", host)
+	if err != nil {
+		h.logger.Warn("Failed to get domophone", "error", err)
+	}
+
+	// get entrance
+	entrance, err := h.repo.Households.GetEntrance(context.Background(), domophone.HouseDomophoneID, door)
+	if err != nil {
+		h.logger.Warn("Failed to get entrance", "error", err)
+	}
 
 }

@@ -259,6 +259,40 @@ func (r *HouseholdRepositoryImpl) GetFlatIDsByRFID(ctx context.Context, rfid str
 	return flatIDs, nil
 }
 
+func (r *HouseholdRepositoryImpl) GetFlatIDsByCode(ctx context.Context, code string) ([]int, error) {
+	r.logger.Debug("GetFlatIDsByCode RUN >")
+	query := `
+		SELECT house_flat_id 
+		FROM houses_flats
+		GROUP BY house_flat_id
+	`
+	r.logger.Debug("GetFlatIDsByCode query", "query", query, "rfid", code)
+
+	rows, err := r.db.Query(ctx, query, code)
+	if err != nil {
+		r.logger.Error("Query executing failed", "error", err)
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var flatIDs []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			r.logger.Error("Failed to scan house_flat_id", "error", err)
+			return nil, fmt.Errorf("scan failed: %w", err)
+		}
+		flatIDs = append(flatIDs, id)
+	}
+
+	if len(flatIDs) == 0 {
+		r.logger.Debug("No flats found for CODE", "code", code)
+		return nil, nil
+	}
+
+	return flatIDs, nil
+}
+
 /**
 получить camera streamId
 */
