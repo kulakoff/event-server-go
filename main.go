@@ -79,11 +79,13 @@ func startServer() {
 	// start servers
 	go startServerWithWG(bewardServer, ctx, &wg)
 
-	slog.Info("✅ All services started")
+	logger.Info("✅ All services started")
 
 	// Graceful shutdown
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
+
+	logger.Info("🚀 Application is running. Press Ctrl+C to stop.")
 	<-signalCh
 
 	logger.Info("🛑 Shutting down ...")
@@ -91,6 +93,7 @@ func startServer() {
 	wg.Wait() // waiting for all servers to complete
 }
 
+// wrapper for usage wg sync
 func startServerWithWG(server *syslog_custom.SyslogServer, ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {

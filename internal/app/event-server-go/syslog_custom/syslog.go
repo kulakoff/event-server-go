@@ -102,44 +102,6 @@ func (s *SyslogServer) Start(ctx context.Context) error {
 	}
 }
 
-func (s *SyslogServer) StartOld(ctx context.Context) {
-	//syslog_custom port
-	addr := fmt.Sprintf(":%d", s.port)
-	udpAddr, err := net.ResolveUDPAddr("udp", addr)
-	if err != nil {
-		s.logger.Warn("Error resolving UDP address", "error", err)
-	}
-
-	conn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		s.logger.Warn("Error starting UDP listener", "error", err)
-	}
-	defer conn.Close()
-
-	s.logger.Info("Syslog server running", "unit", s.unit, "port", s.port)
-
-	buffer := make([]byte, 1024)
-	for {
-		n, srcAddr, err := conn.ReadFromUDP(buffer)
-		if err != nil {
-			s.logger.Warn("Error reading from UDP: %v", err)
-			continue
-		}
-
-		message := string(buffer[:n])
-
-		parsedMessage, err := s.ParseMessage(message)
-		if err != nil {
-			s.logger.Warn("Error parsing message", "error", err)
-			continue
-		}
-
-		if parsedMessage != nil {
-			s.handler.HandleMessage(srcAddr.IP.String(), parsedMessage)
-		}
-	}
-}
-
 func New(port int, unit string, logger *slog.Logger, handler MessageHandler) *SyslogServer {
 	return &SyslogServer{
 		port:    port,
