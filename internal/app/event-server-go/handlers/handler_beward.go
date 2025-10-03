@@ -20,6 +20,10 @@ import (
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 )
 
+const PREVIEW_IPCAM = 1
+const PREVIEW_FRS = 2
+const TTL_CAMSHOT_HOURS = time.Hour * 24 * 30 * 6
+
 // BewardHandler handles messages specific to Beward panels
 type BewardHandler struct {
 	logger    *slog.Logger
@@ -221,7 +225,7 @@ func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message str
 	h.logger.Debug("Open door by code", "host", host, "message", message)
 
 	frsEnabled := false
-	preview := 1
+	preview := PREVIEW_IPCAM
 	rbtAPI := h.rbtApi.Internal
 	var faceData map[string]interface{}
 	door := 0 // main door usage digit code
@@ -297,7 +301,7 @@ func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message str
 				"width":  bqResponse.Data.Width,
 				"height": bqResponse.Data.Height,
 			}
-			preview = 2
+			preview = PREVIEW_FRS
 
 			h.logger.Debug("HandleMessage | HandleDebug | get img from FRS")
 			camScreenShot = nil
@@ -307,7 +311,7 @@ func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message str
 
 	metadata := map[string]interface{}{
 		"contentType": "image/jpeg",
-		"expire":      int32(timestamp.Add(time.Hour * 24 * 30 * 6).Unix()),
+		"expire":      int32(timestamp.Add(TTL_CAMSHOT_HOURS).Unix()),
 	}
 
 	// save data to MongoDb
@@ -367,7 +371,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	frsEnabled := false
 	isExternalReader := false
 	var faceData map[string]interface{}
-	preview := 1
+	preview := PREVIEW_IPCAM
 
 	/**
 	TODO:
@@ -522,7 +526,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 				"width":  bqResponse.Data.Width,
 				"height": bqResponse.Data.Height,
 			}
-			preview = 2
+			preview = PREVIEW_FRS
 
 			h.logger.Debug("HandleMessage | HandleDebug | get img from FRS")
 			camScreenShot = nil
@@ -671,7 +675,7 @@ func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message stri
 
 	metadata := map[string]interface{}{
 		"contentType": "image/jpeg",
-		"expire":      int32(timestamp.Add(time.Hour * 24 * 30 * 6).Unix()),
+		"expire":      int32(timestamp.Add(TTL_CAMSHOT_HOURS).Unix()),
 	}
 
 	// save data to MongoDb
