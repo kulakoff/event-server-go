@@ -79,6 +79,7 @@ func startServer() {
 	// start servers
 	go startServerWithWG(bewardServer, ctx, &wg)
 
+	slog.Info("REDIS CONF", "conf", cfg.Redis)
 	logger.Info("✅ All services started")
 
 	// Graceful shutdown

@@ -1,4 +1,4 @@
-package feature
+package test
 
 import (
 	"context"
@@ -93,7 +93,7 @@ func getEnv(envName, valueDefault string) string {
 
 func initConsumerGroup(ctx context.Context, client *redis.Client) {
 	stream := "door_open_events_stream"
-	group := "door_events_processor"
+	group := "door_open_events_workers"
 
 	// Создаем consumer group если не существует
 	err := client.XGroupCreateMkStream(ctx, stream, group, "0").Err()

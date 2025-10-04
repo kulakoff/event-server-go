@@ -11,6 +11,7 @@ type Config struct {
 	Clickhouse *ClickhouseConfig `json:"clickhouse"`
 	MongoDb    *MongoDbConfig    `json:"mongodb"`
 	Postgres   *PostgresConfig   `json:"postgres"`
+	Redis      *RedisConfig      `json:"redis"`
 	RbtApi     *RbtApi           `json:"rbtApi"`
 	FrsApi     *FrsApi           `json:"frsApi"`
 	Hw         *HwConfig         `json:"hw"`
@@ -19,6 +20,7 @@ type Config struct {
 type Topology struct {
 	NAT bool `json:"nat"`
 }
+
 type RbtApi struct {
 	Internal string `json:"internal"`
 }
@@ -39,6 +41,14 @@ type ClickhouseConfig struct {
 	Database string `json:"database"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+type RedisConfig struct {
+	Host     string `json:"host"`
+	Port     string `json:"port"`
+	Password string `json:"password"`
+	Stream   string `json:"stream"`
+	Group    string `json:"group"`
 }
 
 type MongoDbConfig struct {
