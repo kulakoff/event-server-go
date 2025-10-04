@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 )
 
 func main() {
@@ -46,18 +45,18 @@ func main() {
 	defer redisStorage.Close()
 
 	// make fake publisher
-	//publisger := stream_publisher.NewStreamPublisher(logger, redisStorage, stream_publisher.StreamPublisherConfig{
-	//	StreamName:        "door_open_events_stream",
-	//	MessagesPerSecond: 1,
-	//	Mode:              "steady",
-	//})
-
 	publisher := stream_publisher.NewStreamPublisher(logger, redisStorage, stream_publisher.StreamPublisherConfig{
-		StreamName:    "door_open_events_stream",
-		PublishRate:   50,              // 50 сообщений в пачке
-		BurstInterval: 5 * time.Second, // каждые 5 секунд
-		Mode:          "batch",         // явно указываем режим
+		StreamName:        "door_open_events_stream",
+		MessagesPerSecond: 1,
+		Mode:              "steady",
 	})
+
+	//publisher := stream_publisher.NewStreamPublisher(logger, redisStorage, stream_publisher.StreamPublisherConfig{
+	//	StreamName:    "door_open_events_stream",
+	//	PublishRate:   50,              // 50 сообщений в пачке
+	//	BurstInterval: 5 * time.Second, // каждые 5 секунд
+	//	Mode:          "batch",         // явно указываем режим
+	//})
 
 	wg.Add(1)
 

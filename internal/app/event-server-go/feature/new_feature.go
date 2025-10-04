@@ -34,13 +34,13 @@ const (
 
 // DoorOpenEvent - parse structure from php backend
 type DoorOpenEvent struct {
-	Date      int64  `json:"date"`
-	ID        int    `json:"id"`
-	IP        string `json:"ip"`
-	SubID     *int64 `json:"sub_id"` // может быть null
-	EventType int    `json:"event_type"`
-	Door      int    `json:"door"`
-	Detail    string `json:"detail"`
+	Date        int64  `json:"date"`
+	DomophoneId int    `json:"domophone_id"`
+	IP          string `json:"ip"`
+	SubID       *int64 `json:"sub_id"` // может быть null
+	EventType   int    `json:"event_type"`
+	Door        int    `json:"door"`
+	Detail      string `json:"detail"`
 }
 
 type StreamProcessorConfig struct {
@@ -56,6 +56,7 @@ type StreamProcessor struct {
 	logger  *slog.Logger
 	redis   *storage.RedisStorage
 	fsFiles *storage.MongoHandler
+	storage *storage.ClickhouseHttpClient
 	config  StreamProcessorConfig
 	wg      sync.WaitGroup
 	repo    *repository.PostgresRepository
@@ -66,6 +67,7 @@ func NewStreamProcessor(
 	logger *slog.Logger,
 	redisStorage *storage.RedisStorage,
 	fsFiles *storage.MongoHandler,
+	storage *storage.ClickhouseHttpClient,
 	config StreamProcessorConfig,
 	repo *repository.PostgresRepository,
 	frsApi *config.FrsApi,
@@ -74,6 +76,7 @@ func NewStreamProcessor(
 		logger:  logger,
 		redis:   redisStorage,
 		fsFiles: fsFiles,
+		storage: storage,
 		config:  config,
 		repo:    repo,
 		frsApi:  frsApi,
@@ -94,8 +97,8 @@ func (s *StreamProcessor) Start(ctx context.Context) error {
 	}
 
 	// Start pending worker, process failed task
-	s.wg.Add(1)
-	go s.pendingWorker(ctx)
+	//s.wg.Add(1)
+	//go s.pendingWorker(ctx)
 
 	s.logger.Info("Stream processor started",
 		"workers", s.config.WorkersCount,
@@ -247,15 +250,22 @@ func (s *StreamProcessor) processDoorEvent(message redis.XMessage, workerName st
 
 // saveToDatabase - storage data
 func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
+	var faceId, frsEventId string
+	var faceData map[string]interface{}
 	eventDetail := strings.Split(event.Detail, "|")
-	preview := PREVIEW_NONE
+
+	if len(eventDetail) == 2 {
+		faceId = eventDetail[0]
+		frsEventId = eventDetail[1]
+	} else {
+		return false
+	}
+
 	door := 0
-	faceId := eventDetail[0]
-	frsEventId := eventDetail[1]
 	eventGUIDv4 := uuid.New().String()
 
 	// get entrance
-	entrance, err := s.repo.Households.GetEntrance(context.Background(), event.ID, door)
+	entrance, err := s.repo.Households.GetEntrance(context.Background(), event.DomophoneId, door)
 	if err != nil {
 		s.logger.Error("Failed to get entrance")
 		return false
@@ -269,9 +279,14 @@ func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
 	}
 	var camScreenShot []byte
 	bqResponse, _ := utils.GetBestQualityByEvent(s.frsApi, *entrance.CameraID, frsEventId)
-	if bqResponse == nil {
-		preview = PREVIEW_FRS
+	if bqResponse != nil {
 		camScreenShot, err = utils.DownloadFile(bqResponse.Data.Screenshot)
+		faceData = map[string]interface{}{
+			"left":   bqResponse.Data.Left,
+			"top":    bqResponse.Data.Top,
+			"width":  bqResponse.Data.Width,
+			"height": bqResponse.Data.Height,
+		}
 	}
 
 	metadata := map[string]interface{}{
@@ -288,7 +303,39 @@ func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
 	// generate image_uuid
 	imageGUIDv4 := utils.ToGUIDv4(fileId)
 
-	flatList, _ := s.repo.Households.GetFlat
+	flatList, _ := s.repo.Households.GetFlatsByFaceIdFrs(context.Background(), faceId)
+
+	plogData := map[string]interface{}{
+		"date":       event.Date,
+		"event_uuid": eventGUIDv4,
+		"hidden":     0,
+		"image_uuid": imageGUIDv4,
+		"flat_id":    flatList[0],
+		"domophone": map[string]interface{}{
+			"camera_id":             camera.CameraID,
+			"domophone_description": entrance.Entrance,
+			"domophone_id":          event.DomophoneId,
+			"domophone_output":      entrance.DomophoneOutput,
+			"entrance_id":           entrance.HouseEntranceID,
+			"house_id":              entrance.AddressHouseID,
+		},
+		"event":   EVENT_OPENED_BY_FACE,
+		"opened":  1, // bool
+		"face":    faceData,
+		"rfid":    "",
+		"code":    "",
+		"phones":  map[string]interface{}{},
+		"preview": PREVIEW_FRS, // 0 no image, 1 - image from DVR, 2 - image from FRS
+	}
+	plogDataString, err := json.Marshal(plogData)
+	if err != nil {
+		s.logger.Debug("Failed marshal JSON")
+	}
+
+	err = s.storage.Insert("plog", string(plogDataString))
+	if err != nil {
+		s.logger.Error("Error insert to plog", "err", err)
+	}
 
 	// TODO: work imitation
 	time.Sleep(50 * time.Millisecond)

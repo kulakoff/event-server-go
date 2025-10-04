@@ -233,7 +233,8 @@ func (s *StreamPublisher) generateDoorOpenEvent(sequence int) DoorOpenEvent {
 	ip := s.config.IPPool[rand.Intn(len(s.config.IPPool))]
 
 	// Случайный тип события (1-10)
-	eventType := rand.Intn(10) + 1
+	//eventType := rand.Intn(10) + 1
+	eventType := 5
 
 	// Случайная дверь (0-1)
 	door := rand.Intn(2)
@@ -248,26 +249,9 @@ func (s *StreamPublisher) generateDoorOpenEvent(sequence int) DoorOpenEvent {
 	// Различные детали в зависимости от типа события
 	var detail string
 	switch eventType {
-	case 1:
-		detail = "Open by code"
-	case 2:
-		detail = "Open by RFID"
-	case 3:
-		detail = "Open by button"
-	case 4:
-		detail = "Open by mobile"
 	case 5:
-		detail = "Open by call"
-	case 6:
-		detail = "Emergency open"
-	case 7:
-		detail = "Schedule open"
-	case 8:
-		detail = "Open by key"
-	case 9:
-		detail = "Auto open"
-	case 10:
-		detail = "Manual open"
+		detail = "36|1344"
+
 	default:
 		detail = "Unknown open"
 	}
