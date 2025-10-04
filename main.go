@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/feature"
 	handlers2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/handlers"
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
 	storage2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/storage"
@@ -9,6 +10,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	//"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"log/slog"
@@ -79,7 +81,32 @@ func startServer() {
 	// start servers
 	go startServerWithWG(bewardServer, ctx, &wg)
 
-	slog.Info("REDIS CONF", "conf", cfg.Redis)
+	// start redis stream process
+	redis, err := storage2.NewRedisStorage(logger, cfg.Redis)
+	if err != nil {
+		logger.Error("Error init Redis", "error", err)
+	}
+	redis.Ping(ctx)
+
+	// TODO: refactor config
+	streamProcessConfig := feature.StreamProcessorConfig{
+		StreamName:     "door_open_events_stream",
+		GroupName:      "door_events_processor",
+		WorkersCount:   3,
+		BatchSize:      5,
+		BlockTime:      5 * time.Second,
+		PendingMinIdle: 30 * time.Second,
+	}
+	streamProcess := feature.NewStreamProcessor(logger, redis, streamProcessConfig)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := streamProcess.Start(ctx); err != nil {
+			logger.Error("Error starting stream", "error", err)
+		}
+	}()
+
 	logger.Info("✅ All services started")
 
 	// Graceful shutdown
