@@ -4,22 +4,43 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/storage"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"github.com/redis/go-redis/v9"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
+)
+
+const (
+	PREVIEW_NONE               = 0
+	PREVIEW_IPCAM              = 1
+	PREVIEW_FRS                = 2
+	TTL_CAMSHOT_HOURS          = time.Hour * 24 * 30 * 6
+	EVENT_UNANSWERED_CALL      = 1
+	EVENT_ANSWERED_CALL        = 2
+	EVENT_OPENED_BY_KEY        = 3
+	EVENT_OPENED_BY_APP        = 4
+	EVENT_OPENED_BY_FACE       = 5
+	EVENT_OPENED_BY_CODE       = 6
+	EVENT_OPENED_GATES_BY_CALL = 7
+	EVENT_OPENED_BY_VEHICLE    = 9
+	MONGO_SCREENSHOT_NAME      = "camshot"
 )
 
 // DoorOpenEvent - parse structure from php backend
 type DoorOpenEvent struct {
 	Date      int64  `json:"date"`
+	ID        int    `json:"id"`
 	IP        string `json:"ip"`
 	SubID     *int64 `json:"sub_id"` // может быть null
 	EventType int    `json:"event_type"`
 	Door      int    `json:"door"`
 	Detail    string `json:"detail"`
-	Timestamp int64  `json:"timestamp"`
 }
 
 type StreamProcessorConfig struct {
@@ -32,21 +53,30 @@ type StreamProcessorConfig struct {
 }
 
 type StreamProcessor struct {
-	logger *slog.Logger
-	redis  *storage.RedisStorage
-	config StreamProcessorConfig
-	wg     sync.WaitGroup
+	logger  *slog.Logger
+	redis   *storage.RedisStorage
+	fsFiles *storage.MongoHandler
+	config  StreamProcessorConfig
+	wg      sync.WaitGroup
+	repo    *repository.PostgresRepository
+	frsApi  *config.FrsApi
 }
 
 func NewStreamProcessor(
 	logger *slog.Logger,
 	redisStorage *storage.RedisStorage,
+	fsFiles *storage.MongoHandler,
 	config StreamProcessorConfig,
+	repo *repository.PostgresRepository,
+	frsApi *config.FrsApi,
 ) *StreamProcessor {
 	return &StreamProcessor{
-		logger: logger,
-		redis:  redisStorage,
-		config: config,
+		logger:  logger,
+		redis:   redisStorage,
+		fsFiles: fsFiles,
+		config:  config,
+		repo:    repo,
+		frsApi:  frsApi,
 	}
 }
 
@@ -203,6 +233,7 @@ func (s *StreamProcessor) processDoorEvent(message redis.XMessage, workerName st
 		"detail", event.Detail)
 
 	// TODO: Замените на вашу реальную логику сохранения в БД
+
 	success := s.saveToDatabase(event)
 	if !success {
 		s.logger.Error("Failed to save event to database",
@@ -216,6 +247,49 @@ func (s *StreamProcessor) processDoorEvent(message redis.XMessage, workerName st
 
 // saveToDatabase - storage data
 func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
+	eventDetail := strings.Split(event.Detail, "|")
+	preview := PREVIEW_NONE
+	door := 0
+	faceId := eventDetail[0]
+	frsEventId := eventDetail[1]
+	eventGUIDv4 := uuid.New().String()
+
+	// get entrance
+	entrance, err := s.repo.Households.GetEntrance(context.Background(), event.ID, door)
+	if err != nil {
+		s.logger.Error("Failed to get entrance")
+		return false
+	}
+
+	// TODO: camera not usage??
+	camera, err := s.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
+	if err != nil {
+		s.logger.Error("Failed to get camera")
+		return false
+	}
+	var camScreenShot []byte
+	bqResponse, _ := utils.GetBestQualityByEvent(s.frsApi, *entrance.CameraID, frsEventId)
+	if bqResponse == nil {
+		preview = PREVIEW_FRS
+		camScreenShot, err = utils.DownloadFile(bqResponse.Data.Screenshot)
+	}
+
+	metadata := map[string]interface{}{
+		"contentType": "image/jpeg",
+		"expire":      int32(time.Unix(event.Date, 0).Add(TTL_CAMSHOT_HOURS).Unix()),
+	}
+
+	// save data to MongoDb
+	fileId, err := s.fsFiles.SaveFile(MONGO_SCREENSHOT_NAME, metadata, camScreenShot)
+	if err != nil {
+		s.logger.Debug("MongoDB SaveFile", "err", err)
+	}
+
+	// generate image_uuid
+	imageGUIDv4 := utils.ToGUIDv4(fileId)
+
+	flatList, _ := s.repo.Households.GetFlat
+
 	// TODO: work imitation
 	time.Sleep(50 * time.Millisecond)
 

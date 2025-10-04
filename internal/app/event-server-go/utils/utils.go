@@ -103,6 +103,48 @@ func GetBestQuality(frsApi *config.FrsApi, streamId int, timestamp time.Time) (*
 	return nil, fmt.Errorf("unexpected status code: %d", statusCode)
 }
 
+func GetBestQualityByEvent(frsApi *config.FrsApi, streamId int, frsEventId string) (*FRSBestQualityResponse, error) {
+	url := frsApi.URL + "/frs/api/bestQuality"
+
+	// make headers
+	headers := map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer " + frsApi.Token,
+	}
+
+	// make payload
+	payload := map[string]interface{}{
+		"streamId": streamId,
+		"eventId":  frsEventId,
+	}
+
+	// call request
+	response, statusCode, err := SendPostRequest(url, headers, payload)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request %w", err)
+	}
+
+	// handle 204 status
+	if statusCode == 204 {
+		fmt.Println("frame not found for the given timestamp")
+		return nil, nil
+	}
+
+	// Handle successful response (status 200)
+	if statusCode == 200 {
+		var bestQualityResp FRSBestQualityResponse
+		err = json.Unmarshal(response, &bestQualityResp)
+		if err != nil {
+			fmt.Println("error decoding response", err)
+			return nil, err
+		}
+
+		return &bestQualityResp, nil
+	}
+
+	return nil, fmt.Errorf("unexpected status code: %d", statusCode)
+}
+
 func DownloadFile(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {

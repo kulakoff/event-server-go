@@ -21,6 +21,7 @@ type HouseHoldRepository interface {
 	GetDomophone(ctx context.Context, by, p string) (*models.Domophone, error)
 	GetFlatIDsByRFID(ctx context.Context, rfid string) ([]int, error)
 	GetFlatIDsByCode(ctx context.Context, code string) ([]int, error)
+	GetFlatsByFaceIdFrs(ctx context.Context, faceId string) ([]int, error)
 }
 
 type HouseholdRepositoryImpl struct {
@@ -293,6 +294,12 @@ func (r *HouseholdRepositoryImpl) GetFlatIDsByCode(ctx context.Context, code str
 	}
 
 	return flatIDs, nil
+}
+
+func (r *HouseholdRepositoryImpl) GetFlatsByFaceIdFrs(ctx context.Context, faceId string) ([]int, error) {
+	r.logger.Debug("GetFlatsByFaceIdFrs RUN >")
+	// TODO: implement me
+	return nil, nil
 }
 
 /**

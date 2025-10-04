@@ -97,7 +97,7 @@ func startServer() {
 		BlockTime:      5 * time.Second,
 		PendingMinIdle: 30 * time.Second,
 	}
-	streamProcess := feature.NewStreamProcessor(logger, redis, streamProcessConfig)
+	streamProcess := feature.NewStreamProcessor(logger, redis, streamProcessConfig, repo)
 
 	wg.Add(1)
 	go func() {
