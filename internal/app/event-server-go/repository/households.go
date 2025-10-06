@@ -296,10 +296,44 @@ func (r *HouseholdRepositoryImpl) GetFlatIDsByCode(ctx context.Context, code str
 	return flatIDs, nil
 }
 
-func (r *HouseholdRepositoryImpl) GetFlatsByFaceIdFrs(ctx context.Context, faceId string) ([]int, error) {
+func (r *HouseholdRepositoryImpl) GetFlatsByFaceIdFrs(ctx context.Context, faceId string, entranceId string) ([]int, error) {
 	r.logger.Debug("GetFlatsByFaceIdFrs RUN >")
 	// TODO: implement me
-	return nil, nil
+
+	query := `
+		SELECT
+			flf.flat_id
+		from
+			houses_entrances_flats hef
+			inner join frs_links_faces flf
+			on hef.house_flat_id = flf.flat_id
+		where
+			hef.house_entrance_id = $1
+			and flf.face_id = $2`
+
+	r.logger.Debug("GetFlatsByFaceIdFrs query", "query", query, "faceId", faceId, "entranceId", entranceId)
+	rows, err := r.db.Query(ctx, query, entranceId, faceId)
+	if err != nil {
+		r.logger.Error("Query executing failed", "error", err)
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var flatIDs []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			r.logger.Error("Failed to scan house_flat_id", "error", err)
+			return nil, fmt.Errorf("scan failed: %w", err)
+		}
+		flatIDs = append(flatIDs, id)
+	}
+	if len(flatIDs) == 0 {
+		r.logger.Debug("No flats found for faceId", "faceId", faceId)
+		return nil, nil
+	}
+
+	return flatIDs, nil
 }
 
 /**
