@@ -657,6 +657,12 @@ func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message strin
 		return
 	}
 
+	if strings.Contains(message, "CMS handset call started for apartment") ||
+		strings.Contains(message, "Calling sip:") {
+		h.HandleCallStart(timestamp, host, message, callID)
+		return
+	}
+
 }
 
 func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message string) {
@@ -925,7 +931,16 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	h.logger.Debug("HandleMessage | HandleDebugCode", "timestamp", timestamp)
 }
 
-// utils
+// HandleCallStart TODO: implement me
+func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, message string, callID string) {
+	apartment := h.extractCallID(message)
+	if apartment == "" {
+		h.logger.Warn("Failed to extract apartment from call start", "callID", callID)
+		return
+	}
+}
+
+// utils,  get callID and apartment
 func (h *BewardHandler) extractCallID(message string) string {
 	start := strings.Index(message, "[")
 	if start == -1 {
@@ -945,4 +960,16 @@ func (h *BewardHandler) extractCallID(message string) string {
 	}
 
 	return callID
+}
+
+func (h *BewardHandler) extractApartment(message string) string {
+	if idx := strings.Index(message, "apartment "); idx != -1 {
+		start := idx + len("apartment ")
+		end := strings.IndexAny(message[start:], " ,!].")
+		if end == -1 {
+			return strings.TrimSpace(message[start:])
+		}
+		return strings.TrimSpace(message[start : start+end])
+	}
+	return ""
 }
