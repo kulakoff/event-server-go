@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
@@ -33,6 +34,7 @@ type BewardHandler struct {
 	repo      *repository.PostgresRepository
 	rbtApi    *config.RbtApi
 	frsApi    *config.FrsApi
+	callMutex sync.Mutex
 }
 
 type OpenDoorMsg struct {
@@ -175,6 +177,18 @@ func (h *BewardHandler) HandleMessage(srcIP string, message *syslog_custom.Syslo
 
 	// TODO: implement me
 	// 		- Tracks calls
+	if strings.Contains(message.Message, "CMS handset call started") ||
+		strings.Contains(message.Message, "CMS handset talk started") ||
+		strings.Contains(message.Message, "Opening door by CMS handset") ||
+		strings.Contains(message.Message, "CMS handset call done") ||
+		strings.Contains(message.Message, "Calling sip:") ||
+		strings.Contains(message.Message, "SIP call") ||
+		strings.Contains(message.Message, "SIP talk started") ||
+		strings.Contains(message.Message, "SIP call done") ||
+		strings.Contains(message.Message, "All calls are done") ||
+		strings.Contains(message.Message, "Unable to call CMS") {
+		h.HandleCallFlow(&now, host, message.Message)
+	}
 }
 
 // FIXME:
