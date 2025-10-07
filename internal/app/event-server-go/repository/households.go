@@ -21,7 +21,7 @@ type HouseHoldRepository interface {
 	GetDomophone(ctx context.Context, by, p string) (*models.Domophone, error)
 	GetFlatIDsByRFID(ctx context.Context, rfid string) ([]int, error)
 	GetFlatIDsByCode(ctx context.Context, code string) ([]int, error)
-	GetFlatsByFaceIdFrs(ctx context.Context, faceId string) ([]int, error)
+	GetFlatsByFaceIdFrs(ctx context.Context, faceId string, entranceId string) ([]int, error)
 }
 
 type HouseholdRepositoryImpl struct {

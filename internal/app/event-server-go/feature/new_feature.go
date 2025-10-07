@@ -11,6 +11,7 @@ import (
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/utils"
 	"github.com/redis/go-redis/v9"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -303,7 +304,7 @@ func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
 	// generate image_uuid
 	imageGUIDv4 := utils.ToGUIDv4(fileId)
 
-	flatList, _ := s.repo.Households.GetFlatsByFaceIdFrs(context.Background(), faceId)
+	flatList, _ := s.repo.Households.GetFlatsByFaceIdFrs(context.Background(), faceId, strconv.Itoa(event.DomophoneId))
 
 	plogData := map[string]interface{}{
 		"date":       event.Date,
