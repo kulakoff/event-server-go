@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository/models"
 	"log/slog"
 	"net"
 	"strconv"
@@ -21,20 +22,48 @@ import (
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 )
 
-const PREVIEW_IPCAM = 1
-const PREVIEW_FRS = 2
-const TTL_CAMSHOT_HOURS = time.Hour * 24 * 30 * 6
+const (
+	PREVIEW_IPCAM     = 1
+	PREVIEW_FRS       = 2
+	TTL_CAMSHOT_HOURS = time.Hour * 24 * 30 * 6
+
+	CALL_TYPE_SIP = "sip"
+	CALL_TYPE_CMS = "cms"
+)
+
+type CallData struct {
+	CallID      string
+	Apartment   string
+	DomophoneIP string
+	StartTime   *time.Time
+	EndTime     *time.Time
+	Answered    bool
+	DoorOpened  bool
+	CallType    string
+
+	// Data for event
+	CameraID  int
+	Domophone *models.Domophone
+	Entrance  *models.HouseEntrance
+	FlatID    int
+
+	// Images
+	ScreenshotData []byte
+	FaceData       map[string]interface{}
+	PreviewType    int
+}
 
 // BewardHandler handles messages specific to Beward panels
 type BewardHandler struct {
-	logger    *slog.Logger
-	spamWords []string
-	storage   *storage2.ClickhouseHttpClient
-	fsFiles   *storage2.MongoHandler
-	repo      *repository.PostgresRepository
-	rbtApi    *config.RbtApi
-	frsApi    *config.FrsApi
-	callMutex sync.Mutex
+	logger      *slog.Logger
+	spamWords   []string
+	storage     *storage2.ClickhouseHttpClient
+	fsFiles     *storage2.MongoHandler
+	repo        *repository.PostgresRepository
+	rbtApi      *config.RbtApi
+	frsApi      *config.FrsApi
+	activeCalls map[string]*CallData // key: beward callId
+	callMutex   sync.Mutex
 }
 
 type OpenDoorMsg struct {
@@ -56,13 +85,14 @@ func NewBewardHandler(
 	frsApi *config.FrsApi,
 ) *BewardHandler {
 	return &BewardHandler{
-		logger:    logger,
-		spamWords: filters,
-		storage:   storage,
-		fsFiles:   mongo,
-		repo:      repo,
-		rbtApi:    rbtApi,
-		frsApi:    frsApi,
+		logger:      logger,
+		spamWords:   filters,
+		storage:     storage,
+		fsFiles:     mongo,
+		repo:        repo,
+		rbtApi:      rbtApi,
+		frsApi:      frsApi,
+		activeCalls: make(map[string]*CallData),
 	}
 }
 
@@ -622,6 +652,11 @@ func (h *BewardHandler) HandleOpenByButton(timestamp *time.Time, host, message s
 
 func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message string) {
 	// implement call flow logic
+	callID := h.extractCallID(message)
+	if callID == "" {
+		return
+	}
+
 }
 
 func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message string) {
@@ -888,4 +923,26 @@ func (h *BewardHandler) HandleDebugCode(timestamp *time.Time, host, message stri
 
 func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
 	h.logger.Debug("HandleMessage | HandleDebugCode", "timestamp", timestamp)
+}
+
+// utils
+func (h *BewardHandler) extractCallID(message string) string {
+	start := strings.Index(message, "[")
+	if start == -1 {
+		return ""
+	}
+
+	end := strings.Index(message, "]")
+	if end == -1 || end <= start {
+		return ""
+	}
+
+	callID := message[start+1 : end]
+
+	// check to digit
+	if _, err := strconv.Atoi(callID); err != nil {
+		return ""
+	}
+
+	return callID
 }
