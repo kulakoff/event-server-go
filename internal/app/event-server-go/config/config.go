@@ -7,18 +7,21 @@ import (
 )
 
 type Config struct {
-	Topology   *Topology         `json:"topology"`
-	Clickhouse *ClickhouseConfig `json:"clickhouse"`
-	MongoDb    *MongoDbConfig    `json:"mongodb"`
-	Postgres   *PostgresConfig   `json:"postgres"`
-	RbtApi     *RbtApi           `json:"rbtApi"`
-	FrsApi     *FrsApi           `json:"frsApi"`
-	Hw         *HwConfig         `json:"hw"`
+	Topology     *Topology         `json:"topology"`
+	Clickhouse   *ClickhouseConfig `json:"clickhouse"`
+	MongoDb      *MongoDbConfig    `json:"mongodb"`
+	Postgres     *PostgresConfig   `json:"postgres"`
+	Redis        *RedisConfig      `json:"redis"`
+	RedisStreams *RedisStreams     `json:"redis_streams"`
+	RbtApi       *RbtApi           `json:"rbtApi"`
+	FrsApi       *FrsApi           `json:"frsApi"`
+	Hw           *HwConfig         `json:"hw"`
 }
 
 type Topology struct {
 	NAT bool `json:"nat"`
 }
+
 type RbtApi struct {
 	Internal string `json:"internal"`
 }
@@ -39,6 +42,23 @@ type ClickhouseConfig struct {
 	Database string `json:"database"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+type RedisConfig struct {
+	Host         string `json:"host"`
+	Port         string `json:"port"`
+	Password     string `json:"password"`
+	DB           int    `json:"db"`
+	PoolSize     int    `json:"pool_size"`
+	MinIdleConns int    `json:"min_idle_conns"`
+}
+
+type RedisStreams struct {
+	Stream         string `json:"stream"`
+	Group          string `json:"group"`
+	WorkersCount   int    `json:"workers_count"`
+	PendingMinIdle int    `json:"pending_min_idle"`
+	BlockTime      int    `json:"block_time"`
 }
 
 type MongoDbConfig struct {

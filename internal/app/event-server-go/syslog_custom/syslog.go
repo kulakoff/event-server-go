@@ -1,6 +1,7 @@
 package syslog_custom
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -35,40 +36,68 @@ type MessageHandler interface {
 	HandleMessage(srcIP string, message *SyslogMessage)
 }
 
-func (s *SyslogServer) Start() {
-	//syslog_custom port
+func (s *SyslogServer) Start(ctx context.Context) error {
+	// syslog_custom port
 	addr := fmt.Sprintf(":%d", s.port)
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
-		s.logger.Warn("Error resolving UDP address", "error", err)
+		s.logger.Error("Error resolving UDP address", "error", err)
+		return err
 	}
 
 	conn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		s.logger.Warn("Error starting UDP listener", "error", err)
+		s.logger.Error("Error starting UDP listener", "error", err)
+		return err
 	}
 	defer conn.Close()
 
 	s.logger.Info("Syslog server running", "unit", s.unit, "port", s.port)
 
 	buffer := make([]byte, 1024)
+
 	for {
-		n, srcAddr, err := conn.ReadFromUDP(buffer)
-		if err != nil {
-			s.logger.Warn("Error reading from UDP: %v", err)
-			continue
-		}
+		select {
+		case <-ctx.Done():
+			// Контекст отменен - graceful shutdown
+			s.logger.Info("🛑 Shutting down syslog server", "unit", s.unit)
+			return nil
+		default:
+			// Устанавливаем таймаут для чтения, чтобы периодически проверять контекст
+			err := conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+			if err != nil {
+				return err
+			}
 
-		message := string(buffer[:n])
+			n, srcAddr, err := conn.ReadFromUDP(buffer)
+			if err != nil {
+				// Проверяем, это таймаут или ошибка
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					// Таймаут - продолжаем цикл и проверяем контекст
+					continue
+				}
 
-		parsedMessage, err := s.ParseMessage(message)
-		if err != nil {
-			s.logger.Warn("Error parsing message", "error", err)
-			continue
-		}
+				// Если контекст отменен, не логируем ошибку
+				if ctx.Err() != nil {
+					return nil
+				}
 
-		if parsedMessage != nil {
-			s.handler.HandleMessage(srcAddr.IP.String(), parsedMessage)
+				// Настоящая ошибка чтения
+				s.logger.Warn("Error reading from UDP", "error", err)
+				continue
+			}
+
+			message := string(buffer[:n])
+
+			parsedMessage, err := s.ParseMessage(message)
+			if err != nil {
+				s.logger.Warn("Error parsing message", "error", err)
+				continue
+			}
+
+			if parsedMessage != nil {
+				s.handler.HandleMessage(srcAddr.IP.String(), parsedMessage)
+			}
 		}
 	}
 }

@@ -21,6 +21,14 @@
     "password": "rbt",
     "sslmode": "disabled"
   },
+  "redis" : {
+    "host": "172.28.0.4",
+    "port": "6379",
+    "password": "",
+    "stream": "door_open_events_stream",
+    "group": "door_open_events_workers"
+  },
+
   "rbtApi": {
     "internal": "http://127.0.0.1/internal"
   },
