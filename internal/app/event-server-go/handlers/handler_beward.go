@@ -1186,6 +1186,15 @@ func (h *BewardHandler) processCallEvent(callData *CallData) {
 	// get
 }
 
-func (h *BewardHandler) getCallScreenshots(data *CallData) {
-	// implement get image from cam and best screen from FRS service
+func (h *BewardHandler) getCallScreenshots(callData *CallData) {
+	// TODO : implement get image from cam and best screen from FRS service
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	h.logger.Info("Starting call screenshots processing", "callId", callData.CallID)
+
+	// 1 get screen from camera domophone
+	// 2 get image from FRS (optional)
+	// 3 store image
+	// 4 update callData
 }
