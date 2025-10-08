@@ -47,10 +47,15 @@ type CallData struct {
 	Entrance  *models.HouseEntrance
 	FlatID    int
 
-	// Images
+	// Images data
 	ScreenshotData []byte
 	FaceData       map[string]interface{}
 	PreviewType    int
+
+	// Screenshot storage info
+	screenshotFileID string
+	screenshotReady  bool
+	callMutex        sync.Mutex
 }
 
 // BewardHandler handles messages specific to Beward panels
@@ -672,7 +677,7 @@ func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message strin
 		return
 	}
 
-	// Door opened
+	// Door opened +
 	if strings.Contains(message, "Opening door by CMS handset for apartment") {
 		h.HandleDoorOpen(timestamp, host, message, callID)
 		return
@@ -986,7 +991,6 @@ func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, messa
 	}
 
 	// get entrance
-	//TODO: check output
 	entrance, err := h.repo.Households.GetEntrance(context.Background(), domophone.HouseDomophoneID, 0)
 	if err != nil {
 		h.logger.Warn("Failed to get entrance info", "callID", callID, "error", err)
@@ -995,12 +999,16 @@ func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, messa
 
 	// get flat
 	flatID, err := h.repo.Households.GetFlatIDByApartment(context.Background(), apartment, domophone.HouseDomophoneID)
+	if err != nil {
+		h.logger.Warn("Failed to get flatID", "callID", callID, "error", err)
+		return
+	}
 
 	// make data structure
 	callData := &CallData{
 		CallID:      callID,
 		Apartment:   apartment,
-		DomophoneIP: host, // TODO: check field
+		DomophoneIP: host,
 		StartTime:   timestamp,
 		CallType:    callType,
 		Answered:    false,
@@ -1022,6 +1030,9 @@ func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, messa
 		"apartment", apartment,
 		"domophone", domophone.HouseDomophoneID,
 		"flatID", flatID)
+
+	// get cam screenshot
+	go h.getCallScreenshots(callData)
 }
 
 // utils,  get callID and apartment
@@ -1135,9 +1146,46 @@ func (h *BewardHandler) HandleDoorOpen(timestamp *time.Time, host string, messag
 func (h *BewardHandler) HandleCallEnd(timestamp *time.Time, host string, message string, callID int) {
 	// TODO: implement me!
 	h.logger.Info("⚠️ HandleCallEnd start")
+
+	h.callMutex.Lock()
+	defer h.callMutex.Unlock()
+
+	callData, exists := h.activeCalls[callID]
+	if !exists {
+		h.logger.Debug("Call end for unknown call", "callID", callID)
+		return
+	}
+
+	callData.EndTime = timestamp
+	h.logger.Info("Call ended, prepare event",
+		"callID", callID,
+		"apartment", callData.Apartment,
+		"answered", callData.Answered,
+		"doorOpen", callData.DoorOpened,
+	)
+
+	// process make event
+	go h.processCallEvent(callData)
 }
 
 func (h *BewardHandler) HandleAllCallsDone(timestamp *time.Time, host string, message string, callID int) {
 	// TODO: implement me!
 	h.logger.Info("⚠️ HandleAllCallsDone start")
+}
+
+func (h *BewardHandler) processCallEvent(callData *CallData) {
+	// process event
+	startTime := time.Now()
+	h.logger.Info("Starting call event processing",
+		"callId", callData.CallID,
+		"apartment", callData.Apartment)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// get
+}
+
+func (h *BewardHandler) getCallScreenshots(data *CallData) {
+	// implement get image from cam and best screen from FRS service
 }
