@@ -22,6 +22,7 @@ type HouseHoldRepository interface {
 	GetFlatIDsByRFID(ctx context.Context, rfid string) ([]int, error)
 	GetFlatIDsByCode(ctx context.Context, code string) ([]int, error)
 	GetFlatsByFaceIdFrs(ctx context.Context, faceId string, entranceId string) ([]int, error)
+	GetFlatIDByApartment(ctx context.Context, apartment int, domophoneId int) (int, error)
 }
 
 type HouseholdRepositoryImpl struct {
@@ -303,13 +304,13 @@ func (r *HouseholdRepositoryImpl) GetFlatsByFaceIdFrs(ctx context.Context, faceI
 	query := `
 		SELECT
 			flf.flat_id
-		from
+		FROM
 			houses_entrances_flats hef
-			inner join frs_links_faces flf
-			on hef.house_flat_id = flf.flat_id
-		where
+			INNER JOIN frs_links_faces flf
+			ON hef.house_flat_id = flf.flat_id
+		WHERE 
 			hef.house_entrance_id = $1
-			and flf.face_id = $2`
+			AND flf.face_id = $2`
 
 	r.logger.Debug("GetFlatsByFaceIdFrs query", "query", query, "faceId", faceId, "entranceId", entranceId)
 	rows, err := r.db.Query(ctx, query, entranceId, faceId)
@@ -334,6 +335,31 @@ func (r *HouseholdRepositoryImpl) GetFlatsByFaceIdFrs(ctx context.Context, faceI
 	}
 
 	return flatIDs, nil
+}
+
+// TODO: implement me
+func (r *HouseholdRepositoryImpl) GetFlatIDByApartment(ctx context.Context, apartment, domophoneId int) (int, error) {
+	query := `
+		SELECT
+			house_flat_id
+		FROM
+			houses_entrances_flats
+		WHERE
+			apartment = :apartment
+			AND
+			house_entrance_id in (
+				SELECT 
+					house_entrance_id
+				FROM 
+					houses_entrances
+				WHERE 
+					house_domophone_id = :house_domophone_id
+			)
+		GROUP BY 
+			house_flat_id
+			`
+
+	return 0, nil
 }
 
 /**

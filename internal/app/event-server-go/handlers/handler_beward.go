@@ -976,9 +976,24 @@ func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, messa
 	h.callMutex.Lock()
 	defer h.callMutex.Unlock()
 
-	// get domophone
+	// get domophone data
+	domophone, err := h.repo.Households.GetDomophone(context.Background(), "ip", host)
+	if err != nil {
+		h.logger.Warn("Failed to get domophone", "callID", callID, "err", err)
+		return
+	}
+
 	// get entrance
+	//TODO: check output
+	entrance, err := h.repo.Households.GetEntrance(context.Background(), domophone.HouseDomophoneID, 0)
+	if err != nil {
+		h.logger.Warn("Failed to get entrance info", "callID", callID, "error", err)
+		return
+	}
+
 	// get flat
+	flatIDs, err := h.repo.Households.
+
 	// store callDate structure to mutex
 }
 
