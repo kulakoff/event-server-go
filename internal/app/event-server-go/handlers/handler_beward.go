@@ -652,14 +652,42 @@ func (h *BewardHandler) HandleOpenByButton(timestamp *time.Time, host, message s
 
 func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message string) {
 	// implement call flow logic
+	h.logger.Info("⚠️ HandleCallFlow Start")
 	callID := h.extractCallID(message)
 	if callID == "" {
 		return
 	}
 
+	// call start
 	if strings.Contains(message, "CMS handset call started for apartment") ||
 		strings.Contains(message, "Calling sip:") {
 		h.HandleCallStart(timestamp, host, message, callID)
+		return
+	}
+
+	// call answered
+	if strings.Contains(message, "CMS handset talk started for apartment") ||
+		strings.Contains(message, "SIP talk started for apartment") {
+		h.HandleCallAnswered(timestamp, host, message, callID)
+		return
+	}
+
+	// Door opened
+	if strings.Contains(message, "Opening door by CMS handset for apartment") {
+		h.HandleDoorOpen(timestamp, host, message, callID)
+		return
+	}
+
+	// Call ended, make event
+	if strings.Contains(message, "CMS handset call done for apartment") ||
+		strings.Contains(message, "SIP call done for apartment") {
+		h.HandleCallEnd(timestamp, host, message, callID)
+		return
+	}
+
+	// clear call flow
+	if strings.Contains(message, "All calls are done for apartment") {
+		h.HandleAllCallsDone(timestamp, host, message, callID)
 		return
 	}
 
@@ -933,6 +961,7 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 
 // HandleCallStart TODO: implement me
 func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, message string, callID string) {
+	h.logger.Info("⚠️ HandleCallStart start")
 	apartment := h.extractCallID(message)
 	if apartment == "" {
 		h.logger.Warn("Failed to extract apartment from call start", "callID", callID)
@@ -972,4 +1001,24 @@ func (h *BewardHandler) extractApartment(message string) string {
 		return strings.TrimSpace(message[start : start+end])
 	}
 	return ""
+}
+
+func (h *BewardHandler) HandleCallAnswered(timestamp *time.Time, host string, message string, callID string) {
+	// TODO: implement me!
+	h.logger.Info("⚠️ HandleCallAnswered start")
+}
+
+func (h *BewardHandler) HandleDoorOpen(timestamp *time.Time, host string, message string, callID string) {
+	// TODO: implement me!
+	h.logger.Info("⚠️ HandleDoorOpen start")
+}
+
+func (h *BewardHandler) HandleCallEnd(timestamp *time.Time, host string, message string, callID string) {
+	// TODO: implement me!
+	h.logger.Info("⚠️ HandleCallEnd start")
+}
+
+func (h *BewardHandler) HandleAllCallsDone(timestamp *time.Time, host string, message string, callID string) {
+	// TODO: implement me!
+	h.logger.Info("⚠️ HandleAllCallsDone start")
 }
