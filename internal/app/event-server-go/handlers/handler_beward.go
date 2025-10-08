@@ -32,8 +32,8 @@ const (
 )
 
 type CallData struct {
-	CallID      string
-	Apartment   string
+	CallID      int
+	Apartment   int
 	DomophoneIP string
 	StartTime   *time.Time
 	EndTime     *time.Time
@@ -62,7 +62,7 @@ type BewardHandler struct {
 	repo        *repository.PostgresRepository
 	rbtApi      *config.RbtApi
 	frsApi      *config.FrsApi
-	activeCalls map[string]*CallData // key: beward callId
+	activeCalls map[int]*CallData // key: beward callId
 	callMutex   sync.Mutex
 }
 
@@ -92,7 +92,7 @@ func NewBewardHandler(
 		repo:        repo,
 		rbtApi:      rbtApi,
 		frsApi:      frsApi,
-		activeCalls: make(map[string]*CallData),
+		activeCalls: make(map[int]*CallData),
 	}
 }
 
@@ -653,9 +653,9 @@ func (h *BewardHandler) HandleOpenByButton(timestamp *time.Time, host, message s
 func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message string) {
 	// implement call flow logic
 	h.logger.Info("⚠️ HandleCallFlow Start")
-	callID := h.extractCallID(message)
-	if callID == "" {
-		return
+	callID, err := h.extractCallID(message)
+	if err != nil {
+		h.logger.Warn("HandleCallFlow extractCallID", "err", err)
 	}
 
 	// Call start
@@ -960,14 +960,16 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 }
 
 // HandleCallStart -  get base event info
-func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, message string, callID string) {
-	h.logger.Info("⚠️ HandleCallStart start")
-	apartment := h.extractCallID(message)
-	if apartment == "" {
-		h.logger.Warn("Failed to extract apartment from call start", "callID", callID)
+func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, message string, callID int) {
+	h.logger.Info("⚠️️️️️️️ HandleCallStart start")
+	// get flat number
+	apartment, err := h.extractApartment(message)
+	if err != nil {
+		h.logger.Warn("Failed to extract apartment from call start", "message", message)
 		return
 	}
 
+	// call type: SIP or CMS
 	callType := CALL_TYPE_SIP
 	if strings.Contains(message, "CMS handset call started") {
 		callType = CALL_TYPE_CMS
@@ -992,61 +994,130 @@ func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, messa
 	}
 
 	// get flat
-	flatIDs, err := h.repo.Households.
+	flatID, err := h.repo.Households.GetFlatIDByApartment(context.Background(), apartment, domophone.HouseDomophoneID)
 
-	// store callDate structure to mutex
+	// make data structure
+	callData := &CallData{
+		CallID:      callID,
+		Apartment:   apartment,
+		DomophoneIP: host, // TODO: check field
+		StartTime:   timestamp,
+		CallType:    callType,
+		Answered:    false,
+		DoorOpened:  false,
+		Domophone:   domophone,
+		Entrance:    entrance,
+		FlatID:      flatID,
+	}
+
+	// store cameraId if exist
+	if entrance.CameraID != nil {
+		callData.CameraID = *entrance.CameraID
+	}
+
+	h.activeCalls[callID] = callData
+
+	h.logger.Info("️️️️️️⚠️️️ Call started - data collected",
+		"callID", callID,
+		"apartment", apartment,
+		"domophone", domophone.HouseDomophoneID,
+		"flatID", flatID)
 }
 
 // utils,  get callID and apartment
-func (h *BewardHandler) extractCallID(message string) string {
+func (h *BewardHandler) extractCallID(message string) (int, error) {
 	start := strings.Index(message, "[")
 	if start == -1 {
-		return ""
+		return 0, fmt.Errorf("opening bracket not found")
 	}
 
 	end := strings.Index(message, "]")
 	if end == -1 || end <= start {
-		return ""
+		return 0, fmt.Errorf("closing bracket not found or invalid position")
 	}
 
-	callID := message[start+1 : end]
+	callIDStr := message[start+1 : end]
+	callIDStr = strings.TrimSpace(callIDStr)
 
-	// check to digit
-	if _, err := strconv.Atoi(callID); err != nil {
-		return ""
+	callID, err := strconv.Atoi(callIDStr)
+	if err != nil {
+		return 0, fmt.Errorf("call ID is not a valid number: %s", callIDStr)
 	}
 
-	return callID
+	return callID, nil
 }
 
-func (h *BewardHandler) extractApartment(message string) string {
+func (h *BewardHandler) extractApartment(message string) (int, error) {
 	if idx := strings.Index(message, "apartment "); idx != -1 {
 		start := idx + len("apartment ")
 		end := strings.IndexAny(message[start:], " ,!].")
 		if end == -1 {
-			return strings.TrimSpace(message[start:])
+			end = len(message) - start
 		}
-		return strings.TrimSpace(message[start : start+end])
+
+		apartmentStr := strings.TrimSpace(message[start : start+end])
+		return strconv.Atoi(apartmentStr)
 	}
-	return ""
+	return 0, fmt.Errorf("apartment not found in message")
 }
 
-func (h *BewardHandler) HandleCallAnswered(timestamp *time.Time, host string, message string, callID string) {
+func (h *BewardHandler) extractSIPCallID(message string) (int, error) {
+	if idx := strings.Index(message, "SIP call "); idx != -1 {
+		start := idx + len("SIP call ")
+		end := strings.IndexAny(message[start:], " ]")
+		if end == -1 {
+			end = len(message) - start
+		}
+
+		sipCallIDStr := strings.TrimSpace(message[start : start+end])
+		sipCallID, err := strconv.Atoi(sipCallIDStr)
+		if err != nil {
+			return 0, fmt.Errorf("SIP call ID '%s' is not a valid number", sipCallIDStr)
+		}
+
+		return sipCallID, nil
+	}
+	return 0, fmt.Errorf("SIP call pattern not found in message")
+}
+
+//func (h *BewardHandler) extractSIPCallID(message string) string {
+//	// Ищем паттерн "SIP call X"
+//	if idx := strings.Index(message, "SIP call "); idx != -1 {
+//		start := idx + len("SIP call ")
+//		end := strings.IndexAny(message[start:], " ]")
+//		if end == -1 {
+//			return message[start:]
+//		}
+//		return message[start : start+end]
+//	}
+//	return ""
+//}
+
+func (h *BewardHandler) HandleCallAnswered(timestamp *time.Time, host string, message string, callID int) {
 	// TODO: implement me!
 	h.logger.Info("⚠️ HandleCallAnswered start")
+
+	h.callMutex.Lock()
+	defer h.callMutex.Unlock()
+
+	callData, exists := h.activeCalls[callID]
+	if !exists {
+		h.logger.Debug("Call answered for unknown call", "callID", callID)
+		return
+	}
 }
 
-func (h *BewardHandler) HandleDoorOpen(timestamp *time.Time, host string, message string, callID string) {
+func (h *BewardHandler) HandleDoorOpen(timestamp *time.Time, host string, message string, callID int) {
 	// TODO: implement me!
 	h.logger.Info("⚠️ HandleDoorOpen start")
 }
 
-func (h *BewardHandler) HandleCallEnd(timestamp *time.Time, host string, message string, callID string) {
+func (h *BewardHandler) HandleCallEnd(timestamp *time.Time, host string, message string, callID int) {
 	// TODO: implement me!
 	h.logger.Info("⚠️ HandleCallEnd start")
 }
 
-func (h *BewardHandler) HandleAllCallsDone(timestamp *time.Time, host string, message string, callID string) {
+func (h *BewardHandler) HandleAllCallsDone(timestamp *time.Time, host string, message string, callID int) {
 	// TODO: implement me!
 	h.logger.Info("⚠️ HandleAllCallsDone start")
 }

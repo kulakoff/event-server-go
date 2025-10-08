@@ -345,7 +345,7 @@ func (r *HouseholdRepositoryImpl) GetFlatIDByApartment(ctx context.Context, apar
 		FROM
 			houses_entrances_flats
 		WHERE
-			apartment = :apartment
+			apartment = $1
 			AND
 			house_entrance_id in (
 				SELECT 
@@ -353,13 +353,18 @@ func (r *HouseholdRepositoryImpl) GetFlatIDByApartment(ctx context.Context, apar
 				FROM 
 					houses_entrances
 				WHERE 
-					house_domophone_id = :house_domophone_id
+					house_domophone_id = $2
 			)
 		GROUP BY 
 			house_flat_id
 			`
-
-	return 0, nil
+	var flatID int
+	err := r.db.QueryRow(ctx, query, apartment, domophoneId).Scan(&flatID)
+	if err != nil {
+		r.logger.Error("Query executing failed", "error", err)
+		return 0, fmt.Errorf("query failed: %w", err)
+	}
+	return flatID, nil
 }
 
 /**
