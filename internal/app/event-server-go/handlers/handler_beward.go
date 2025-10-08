@@ -658,14 +658,14 @@ func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message strin
 		h.logger.Warn("HandleCallFlow extractCallID", "err", err)
 	}
 
-	// Call start
+	// Call start +
 	if strings.Contains(message, "CMS handset call started for apartment") ||
 		strings.Contains(message, "Calling sip:") {
 		h.HandleCallStart(timestamp, host, message, callID)
 		return
 	}
 
-	// Call answered
+	// Call answered +
 	if strings.Contains(message, "CMS handset talk started for apartment") ||
 		strings.Contains(message, "SIP talk started for apartment") {
 		h.HandleCallAnswered(timestamp, host, message, callID)
@@ -1105,11 +1105,31 @@ func (h *BewardHandler) HandleCallAnswered(timestamp *time.Time, host string, me
 		h.logger.Debug("Call answered for unknown call", "callID", callID)
 		return
 	}
+
+	callData.Answered = true
+
+	h.logger.Info("Call answered",
+		"callID", callID,
+		"apartment", callData.Apartment)
 }
 
 func (h *BewardHandler) HandleDoorOpen(timestamp *time.Time, host string, message string, callID int) {
 	// TODO: implement me!
+	// set door opened for call state
 	h.logger.Info("⚠️ HandleDoorOpen start")
+
+	h.callMutex.Lock()
+	defer h.callMutex.Unlock()
+
+	callData, exists := h.activeCalls[callID]
+	if !exists {
+		h.logger.Debug("Call door open for unknown call", "callID", callID)
+	}
+
+	callData.DoorOpened = true
+	h.logger.Info("Door has opened by call",
+		"callID", callID,
+		"apartment", callData.Apartment)
 }
 
 func (h *BewardHandler) HandleCallEnd(timestamp *time.Time, host string, message string, callID int) {
