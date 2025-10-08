@@ -658,14 +658,14 @@ func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message strin
 		return
 	}
 
-	// call start
+	// Call start
 	if strings.Contains(message, "CMS handset call started for apartment") ||
 		strings.Contains(message, "Calling sip:") {
 		h.HandleCallStart(timestamp, host, message, callID)
 		return
 	}
 
-	// call answered
+	// Call answered
 	if strings.Contains(message, "CMS handset talk started for apartment") ||
 		strings.Contains(message, "SIP talk started for apartment") {
 		h.HandleCallAnswered(timestamp, host, message, callID)
@@ -685,7 +685,7 @@ func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message strin
 		return
 	}
 
-	// clear call flow
+	// Clear call flow
 	if strings.Contains(message, "All calls are done for apartment") {
 		h.HandleAllCallsDone(timestamp, host, message, callID)
 		return
@@ -959,7 +959,7 @@ func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) 
 	h.logger.Debug("HandleMessage | HandleDebugCode", "timestamp", timestamp)
 }
 
-// HandleCallStart TODO: implement me
+// HandleCallStart -  get base event info
 func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, message string, callID string) {
 	h.logger.Info("⚠️ HandleCallStart start")
 	apartment := h.extractCallID(message)
@@ -967,6 +967,19 @@ func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, messa
 		h.logger.Warn("Failed to extract apartment from call start", "callID", callID)
 		return
 	}
+
+	callType := CALL_TYPE_SIP
+	if strings.Contains(message, "CMS handset call started") {
+		callType = CALL_TYPE_CMS
+	}
+
+	h.callMutex.Lock()
+	defer h.callMutex.Unlock()
+
+	// get domophone
+	// get entrance
+	// get flat
+	// store callDate structure to mutex
 }
 
 // utils,  get callID and apartment
