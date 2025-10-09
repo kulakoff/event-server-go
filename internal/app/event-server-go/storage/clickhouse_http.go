@@ -64,7 +64,7 @@ func (c *ClickhouseHttpClient) Insert(table, data string) error {
 		return fmt.Errorf("non-OK HTTP status: %s", resp.Status)
 	}
 
-	c.logger.Debug("Data inserted success to Clickhouse", "table", table)
+	//c.logger.Debug("Data inserted success to Clickhouse", "table", table)
 	return nil
 }
 

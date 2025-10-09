@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository/models"
 	"log/slog"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository/models"
 
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/services/frs"
@@ -29,6 +30,16 @@ const (
 
 	CALL_TYPE_SIP = "sip"
 	CALL_TYPE_CMS = "cms"
+
+	// event types
+	EVENT_UNANSWERED_CALL      = 1
+	EVENT_ANSWERED_CALL        = 2
+	EVENT_OPENED_BY_KEY        = 3
+	EVENT_OPENED_BY_APP        = 4
+	EVENT_OPENED_BY_FACE       = 5
+	EVENT_OPENED_BY_CODE       = 6
+	EVENT_OPENED_GATES_BY_CALL = 7
+	EVENT_OPENED_BY_VEHICLE    = 9
 )
 
 type CallData struct {
@@ -43,6 +54,7 @@ type CallData struct {
 
 	// Data for event
 	CameraID  int
+	CameraFRS string
 	Domophone *models.Domophone
 	Entrance  *models.HouseEntrance
 	FlatID    int
@@ -54,7 +66,7 @@ type CallData struct {
 
 	// Screenshot storage info
 	screenshotFileID string
-	screenshotReady  bool
+	screenshotsReady bool
 	callMutex        sync.Mutex
 }
 
@@ -245,7 +257,7 @@ func (h *BewardHandler) APICallToRBT(payload *OpenDoorMsg) error {
 	return nil
 }
 
-// HandleMotionDetection - OK
+// HandleMotionDetection - complete
 func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host string, motionActive bool) {
 	// implement motion detection logic
 	// get streamId by intercom IP and call to API FRS. message motion start or stop
@@ -269,6 +281,7 @@ func (h *BewardHandler) HandleMotionDetection(timestamp *time.Time, host string,
 	}
 }
 
+// HandleOpenByCode - complete
 func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message string) {
 	// implement open door by code logic
 	h.logger.Debug("Open door by code", "host", host, "message", message)
@@ -414,6 +427,7 @@ func (h *BewardHandler) HandleOpenByCode(timestamp *time.Time, host, message str
 	// TODO: update last usage code
 }
 
+// HandleOpenByRFID - complete
 func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message string) {
 	// implement open door by RFID key logic
 	h.logger.Debug("Open door by RFID")
@@ -638,6 +652,7 @@ func (h *BewardHandler) HandleOpenByRFID(timestamp *time.Time, host, message str
 	}
 }
 
+// HandleOpenByButton - not implemented
 func (h *BewardHandler) HandleOpenByButton(timestamp *time.Time, host, message string) {
 	// implement open door by open button
 	h.logger.Debug("Open door by button", "host", host, "message", message)
@@ -655,6 +670,8 @@ func (h *BewardHandler) HandleOpenByButton(timestamp *time.Time, host, message s
 	h.logger.Debug("Open door by button", "host", host, "detail", detail, "door", door)
 }
 
+// -------
+
 func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message string) {
 	// implement call flow logic
 	h.logger.Info("⚠️ HandleCallFlow Start")
@@ -663,14 +680,15 @@ func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message strin
 		h.logger.Warn("HandleCallFlow extractCallID", "err", err)
 	}
 
-	// Call start +
+	// 01 - Call start +
 	if strings.Contains(message, "CMS handset call started for apartment") ||
+		strings.Contains(message, "Unable to call CMS apartment") || // CMS disabled
 		strings.Contains(message, "Calling sip:") {
 		h.HandleCallStart(timestamp, host, message, callID)
 		return
 	}
 
-	// Call answered +
+	// 02 - Call answered +
 	if strings.Contains(message, "CMS handset talk started for apartment") ||
 		strings.Contains(message, "SIP talk started for apartment") {
 		h.HandleCallAnswered(timestamp, host, message, callID)
@@ -695,9 +713,483 @@ func (h *BewardHandler) HandleCallFlow(timestamp *time.Time, host, message strin
 		h.HandleAllCallsDone(timestamp, host, message, callID)
 		return
 	}
-
 }
 
+// HandleCallStart -  get base event info
+func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, message string, callID int) {
+	h.logger.Info("🎃 - HandleCallStart start")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	// get flat number
+	apartment, err := h.extractApartment(message)
+	if err != nil {
+		h.logger.Warn("Failed to extract apartment from call start", "message", message)
+		return
+	}
+
+	// call type: SIP or CMS
+	callType := CALL_TYPE_SIP
+	if strings.Contains(message, "CMS handset call started") {
+		callType = CALL_TYPE_CMS
+	}
+
+	h.callMutex.Lock()
+	defer h.callMutex.Unlock()
+
+	// get domophone data
+	domophone, err := h.repo.Households.GetDomophone(ctx, "ip", host)
+	if err != nil {
+		h.logger.Warn("Failed to get domophone", "callID", callID, "err", err)
+		return
+	}
+
+	// get entrance
+	entrance, err := h.repo.Households.GetEntrance(ctx, domophone.HouseDomophoneID, 0)
+	if err != nil {
+		h.logger.Warn("Failed to get entrance info", "callID", callID, "error", err)
+		return
+	}
+
+	// get camera data
+	camera, err := h.repo.Cameras.GetCamera(ctx, *entrance.CameraID)
+	if err != nil {
+		h.logger.Warn("Failed to get camera", "callID", callID, "error", err)
+		return
+	}
+
+	// get flat
+	flatID, err := h.repo.Households.GetFlatIDByApartment(ctx, apartment, domophone.HouseDomophoneID)
+	if err != nil {
+		h.logger.Warn("Failed to get flatID", "callID", callID, "error", err)
+		return
+	}
+
+	// make data structure
+	callData := &CallData{
+		CallID:      callID,
+		Apartment:   apartment,
+		DomophoneIP: host,
+		StartTime:   timestamp,
+		CallType:    callType,
+		Answered:    false,
+		DoorOpened:  false,
+		Domophone:   domophone,
+		Entrance:    entrance,
+		FlatID:      flatID,
+	}
+
+	// store cameraId if exist
+	if entrance.CameraID != nil {
+		callData.CameraID = *entrance.CameraID
+	}
+	if *camera.FRS != "-" {
+		callData.CameraFRS = *camera.FRS
+	}
+
+	h.activeCalls[callID] = callData
+
+	h.logger.Info("️️️️️️⚠️️️ Call started - data collected",
+		"callID", callID,
+		"apartment", apartment,
+		"domophone", domophone.HouseDomophoneID,
+		"flatID", flatID)
+
+	// get cam screenshot
+	go h.getCallScreenshots(callData)
+}
+
+// utils,  get callID and apartment
+func (h *BewardHandler) extractCallID(message string) (int, error) {
+	start := strings.Index(message, "[")
+	if start == -1 {
+		return 0, fmt.Errorf("opening bracket not found")
+	}
+
+	end := strings.Index(message, "]")
+	if end == -1 || end <= start {
+		return 0, fmt.Errorf("closing bracket not found or invalid position")
+	}
+
+	callIDStr := message[start+1 : end]
+	callIDStr = strings.TrimSpace(callIDStr)
+
+	callID, err := strconv.Atoi(callIDStr)
+	if err != nil {
+		return 0, fmt.Errorf("call ID is not a valid number: %s", callIDStr)
+	}
+
+	return callID, nil
+}
+
+func (h *BewardHandler) extractApartment(message string) (int, error) {
+	if idx := strings.Index(message, "apartment "); idx != -1 {
+		start := idx + len("apartment ")
+		end := strings.IndexAny(message[start:], " ,!].")
+		if end == -1 {
+			end = len(message) - start
+		}
+
+		apartmentStr := strings.TrimSpace(message[start : start+end])
+		return strconv.Atoi(apartmentStr)
+	}
+	return 0, fmt.Errorf("apartment not found in message")
+}
+
+func (h *BewardHandler) extractSIPCallID(message string) (int, error) {
+	if idx := strings.Index(message, "SIP call "); idx != -1 {
+		start := idx + len("SIP call ")
+		end := strings.IndexAny(message[start:], " ]")
+		if end == -1 {
+			end = len(message) - start
+		}
+
+		sipCallIDStr := strings.TrimSpace(message[start : start+end])
+		sipCallID, err := strconv.Atoi(sipCallIDStr)
+		if err != nil {
+			return 0, fmt.Errorf("SIP call ID '%s' is not a valid number", sipCallIDStr)
+		}
+
+		return sipCallID, nil
+	}
+	return 0, fmt.Errorf("SIP call pattern not found in message")
+}
+
+//func (h *BewardHandler) extractSIPCallID(message string) string {
+//	// Ищем паттерн "SIP call X"
+//	if idx := strings.Index(message, "SIP call "); idx != -1 {
+//		start := idx + len("SIP call ")
+//		end := strings.IndexAny(message[start:], " ]")
+//		if end == -1 {
+//			return message[start:]
+//		}
+//		return message[start : start+end]
+//	}
+//	return ""
+//}
+
+func (h *BewardHandler) HandleCallAnswered(timestamp *time.Time, host string, message string, callID int) {
+	// TODO: implement me!
+	h.logger.Info("🎃 -  HandleCallAnswered start")
+
+	h.callMutex.Lock()
+	defer h.callMutex.Unlock()
+
+	callData, exists := h.activeCalls[callID]
+	if !exists {
+		h.logger.Debug("Call answered for unknown call", "callID", callID)
+		return
+	}
+
+	callData.Answered = true
+
+	h.logger.Info("Call answered",
+		"callID", callID,
+		"apartment", callData.Apartment)
+}
+
+func (h *BewardHandler) HandleDoorOpen(timestamp *time.Time, host string, message string, callID int) {
+	// TODO: implement me!
+	// set door opened for call state
+	h.logger.Info("🎃 -  HandleDoorOpen start")
+
+	h.callMutex.Lock()
+	defer h.callMutex.Unlock()
+
+	callData, exists := h.activeCalls[callID]
+	if !exists {
+		h.logger.Debug("Call door open for unknown call", "callID", callID)
+	}
+
+	callData.DoorOpened = true
+	h.logger.Info("Door has opened by call",
+		"callID", callID,
+		"apartment", callData.Apartment)
+}
+
+func (h *BewardHandler) HandleCallEnd(timestamp *time.Time, host string, message string, callID int) {
+	// TODO: implement me!
+	h.logger.Info("🎃 - HandleCallEnd start")
+
+	h.callMutex.Lock()
+	callData, exists := h.activeCalls[callID]
+	defer h.callMutex.Unlock()
+
+	if !exists {
+		h.logger.Debug("Call end for unknown call", "callID", callID)
+		return
+	}
+
+	callData.EndTime = timestamp
+
+	h.logger.Info("Call ended, prepare event",
+		"callID", callID,
+		"apartment", callData.Apartment,
+		"answered", callData.Answered,
+		"doorOpen", callData.DoorOpened,
+	)
+
+	// process make event
+
+	go h.prepareFinalCallEvent(callData)
+}
+
+func (h *BewardHandler) prepareFinalCallEvent(callData *CallData) {
+	h.logger.Info("🎃 - prepareFinalCallEvent start")
+	startTime := time.Now()
+
+	// Wait until the screenshots are ready (maximum 15 seconds)
+	for i := 0; i < 30; i++ {
+		callData.callMutex.Lock()
+		ready := callData.screenshotsReady
+		callData.callMutex.Unlock()
+
+		if ready {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	callData.callMutex.Lock()
+	fileID := callData.screenshotFileID
+	callData.callMutex.Unlock()
+
+	if fileID == "" {
+		h.logger.Warn("Screenshots not ready for final event", "callID", callData.CallID)
+		// Все равно сохраняем событие, но без изображения
+		fileID = "no_screenshot"
+	}
+
+	// Формируем и сохраняем итоговое событие
+	h.saveFinalCallEvent(callData, fileID)
+
+	h.logger.Info("Call processing completed",
+		"callID", callData.CallID,
+		"duration", time.Since(startTime))
+}
+
+func (h *BewardHandler) HandleAllCallsDone(timestamp *time.Time, host string, message string, callID int) {
+	h.logger.Info("🎃 - HandleAllCallsDone start")
+	apartment, err := h.extractApartment(message)
+	if err != nil {
+		h.logger.Warn("Failed to extract apartment from all calls done", "callID", callID)
+		return
+	}
+
+	h.callMutex.Lock()
+	defer h.callMutex.Unlock()
+
+	// Удаляем все звонки для этой квартиры
+	for id, callData := range h.activeCalls {
+		if callData.Apartment == apartment {
+			delete(h.activeCalls, id)
+			h.logger.Debug("Removed call data", "callID", id, "apartment", apartment)
+		}
+	}
+
+	h.logger.Info("All calls completed for apartment", "apartment", apartment)
+}
+
+//func (h *BewardHandler) processCallEvent(callData *CallData) {
+//	// process event
+//	//startTime := time.Now()
+//	//h.logger.Info("Starting call event processing",
+//	//	"callId", callData.CallID,
+//	//	"apartment", callData.Apartment)
+//	//
+//	//ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+//	//defer cancel()
+//
+//	// get
+//}
+
+func (h *BewardHandler) getCallScreenshots(callData *CallData) {
+	// TODO : implement get image from cam and best screen from FRS service
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	h.logger.Info("Starting call screenshots processing", "callId", callData.CallID)
+
+	// + 1 get screen from camera domophone
+	if err := h.getCameraScreenshot(ctx, callData); err != nil {
+		h.logger.Warn("Failed to get screenshot from domophone camera", "callId", callData.CallID, "error", err)
+	} else {
+		h.logger.Debug("Camera screenshot completed", "callID", callData.CallID, "dataSize", len(callData.ScreenshotData))
+	}
+
+	// 2 get image from FRS (optional)
+	// TODO: refactor CameraFRS value
+	if callData.CameraID > 0 && callData.CameraFRS != "" {
+		if err := h.getFRSBestQuality(ctx, callData); err != nil {
+			h.logger.Debug("FRS best quality not available", "err", err)
+		} else {
+			h.logger.Debug("FRS processing completed")
+		}
+	}
+
+	// 3 store image
+	fileID, err := h.saveScreenshotToMongo(callData)
+	if err != nil {
+		h.logger.Warn("Failed to save screenshot to Mongo", "callId", callData.CallID, "error", err)
+	}
+
+	// 4 update callData
+	callData.callMutex.Lock()
+	callData.screenshotFileID = fileID
+	callData.screenshotsReady = true
+	callData.callMutex.Unlock()
+
+	h.logger.Info("Call screenshot processed", "callId", callData.CallID, "fileID", fileID)
+}
+
+func (h *BewardHandler) getCameraScreenshot(ctx context.Context, callData *CallData) error {
+	if callData.CameraID == 0 {
+		return fmt.Errorf("no camera ID available")
+	}
+
+	imgURL := h.rbtApi.Internal + "/frs/camshot/" + strconv.Itoa(callData.CameraID)
+
+	h.logger.Debug("Getting camera screenshot", "callID", callData.CallID, "url", imgURL)
+
+	screenshotData, err := utils.DownloadFile(imgURL)
+	if err != nil {
+		return fmt.Errorf("failed to download screenshot: %w", err)
+	}
+
+	callData.ScreenshotData = screenshotData
+	callData.PreviewType = PREVIEW_IPCAM
+
+	h.logger.Debug("Camera screenshot obtained", "callID", callData.CallID, "size", len(screenshotData))
+	return nil
+}
+func (h *BewardHandler) getFRSBestQuality(ctx context.Context, callData *CallData) error {
+	h.logger.Debug("Getting FRS best quality", "callID", callData.CallID, "camera", callData.CameraID)
+
+	// Get best frame from FRS (call started screenshot)
+	bqResponse, err := utils.GetBestQuality(h.frsApi, callData.CameraID, *callData.StartTime)
+	if err != nil {
+		return fmt.Errorf("failed to get FRS best quality: %w", err)
+	}
+
+	if bqResponse == nil || bqResponse.Data.Screenshot == "" {
+		return fmt.Errorf("no FRS best quality data available")
+	}
+
+	// get screenshot from FRS service
+	frsScreenshot, err := utils.DownloadFile(bqResponse.Data.Screenshot)
+	if err != nil {
+		return fmt.Errorf("failed to download FRS screenshot: %w", err)
+	}
+
+	// use FRS image
+	callData.ScreenshotData = frsScreenshot
+	callData.PreviewType = PREVIEW_FRS
+
+	// set face data
+	callData.FaceData = map[string]interface{}{
+		"left":   bqResponse.Data.Left,
+		"top":    bqResponse.Data.Top,
+		"width":  bqResponse.Data.Width,
+		"height": bqResponse.Data.Height,
+	}
+
+	h.logger.Debug("FRS best quality obtained", "callID", callData.CallID, "faceData", callData.FaceData)
+	return nil
+}
+func (h *BewardHandler) saveScreenshotToMongo(callData *CallData) (string, error) {
+	if callData.ScreenshotData == nil {
+		return "", fmt.Errorf("no screenshot data available")
+	}
+
+	metadata := map[string]interface{}{
+		"contentType": "image/jpeg",
+		"expire":      int32(time.Now().Add(TTL_CAMSHOT_HOURS).Unix()),
+		"call_id":     callData.CallID,           // optional, test field
+		"camera_id":   callData.CameraID,         // optional, test field
+		"timestamp":   callData.StartTime.Unix(), // optional, test field
+	}
+
+	fileID, err := h.fsFiles.SaveFile("camshot", metadata, callData.ScreenshotData)
+	if err != nil {
+		return "", fmt.Errorf("failed to save file to MongoDB: %w", err)
+	}
+
+	// clear memory
+	callData.ScreenshotData = nil
+
+	h.logger.Debug("Screenshot saved to MongoDB", "callID", callData.CallID, "fileID", fileID)
+	return fileID, nil
+}
+
+func (h *BewardHandler) saveFinalCallEvent(callData *CallData, fileID string) {
+	h.logger.Info("🎃 - saveFinalCallEvent start")
+	// Определяем тип события на основе того, что произошло во время звонка
+	eventType := Event.NotAnswered
+	opened := 0
+
+	if callData.Answered && callData.DoorOpened {
+		eventType = Event.Answered
+		opened = 1
+	} else if callData.Answered {
+		eventType = Event.Answered
+	}
+
+	// make GUID from fileID
+	imageGUID := utils.ToGUIDv4(fileID)
+
+	//  make plof data
+	plogData := map[string]interface{}{
+		"date":       callData.StartTime.Unix(),
+		"event_uuid": uuid.New().String(),
+		"hidden":     0,
+		"image_uuid": imageGUID,
+		"flat_id":    callData.FlatID,
+		"domophone": map[string]interface{}{
+			"camera_id":             callData.CameraID,
+			"domophone_description": callData.Entrance.Entrance,
+			"domophone_id":          callData.Domophone.HouseDomophoneID,
+			"domophone_output":      callData.Entrance.DomophoneOutput,
+			"entrance_id":           callData.Entrance.HouseEntranceID,
+			"house_id":              callData.Entrance.AddressHouseID,
+		},
+		"event":   eventType,
+		"opened":  opened,
+		"face":    callData.FaceData,
+		"preview": callData.PreviewType,
+		//"call_info": map[string]interface{}{
+		//	"call_id":     callData.CallID,
+		//	"apartment":   callData.Apartment,
+		//	"call_type":   callData.CallType,
+		//	"answered":    callData.Answered,
+		//	"door_opened": callData.DoorOpened,
+		//	"duration":    callData.EndTime.Sub(*callData.StartTime).Seconds(),
+		//},
+		"phones": map[string]interface{}{},
+	}
+
+	// Конвертируем в JSON
+	plogDataString, err := json.Marshal(plogData)
+	if err != nil {
+		h.logger.Warn("Failed to marshal final call event", "callID", callData.CallID, "error", err)
+		return
+	}
+
+	// Сохраняем в хранилище
+	err = h.storage.Insert("plog", string(plogDataString))
+	if err != nil {
+		h.logger.Warn("Failed to insert final call event to plog", "callID", callData.CallID, "error", err)
+	} else {
+		h.logger.Info("Final call event saved to plog",
+			"callID", callData.CallID,
+			"apartment", callData.Apartment,
+			"eventType", eventType,
+			"answered", callData.Answered,
+			"doorOpened", callData.DoorOpened)
+	}
+}
+
+// --- debug
 func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message string) {
 	h.logger.Debug("HandleMessage | HandleDebug", "timestamp", timestamp)
 	//dummy data
@@ -817,7 +1309,6 @@ func (h *BewardHandler) HandleDebugRFID(timestamp *time.Time, host, message stri
 		fmt.Println("INSERT ERR", err)
 	}
 }
-
 func (h *BewardHandler) HandleDebugCode(timestamp *time.Time, host, message string) {
 	h.logger.Debug("HandleMessage | HandleDebugCode", "timestamp", timestamp)
 
@@ -959,242 +1450,6 @@ func (h *BewardHandler) HandleDebugCode(timestamp *time.Time, host, message stri
 		fmt.Println("INSERT ERR", err)
 	}
 }
-
 func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
 	h.logger.Debug("HandleMessage | HandleDebugCode", "timestamp", timestamp)
-}
-
-// HandleCallStart -  get base event info
-func (h *BewardHandler) HandleCallStart(timestamp *time.Time, host string, message string, callID int) {
-	h.logger.Info("⚠️️️️️️️ HandleCallStart start")
-	// get flat number
-	apartment, err := h.extractApartment(message)
-	if err != nil {
-		h.logger.Warn("Failed to extract apartment from call start", "message", message)
-		return
-	}
-
-	// call type: SIP or CMS
-	callType := CALL_TYPE_SIP
-	if strings.Contains(message, "CMS handset call started") {
-		callType = CALL_TYPE_CMS
-	}
-
-	h.callMutex.Lock()
-	defer h.callMutex.Unlock()
-
-	// get domophone data
-	domophone, err := h.repo.Households.GetDomophone(context.Background(), "ip", host)
-	if err != nil {
-		h.logger.Warn("Failed to get domophone", "callID", callID, "err", err)
-		return
-	}
-
-	// get entrance
-	entrance, err := h.repo.Households.GetEntrance(context.Background(), domophone.HouseDomophoneID, 0)
-	if err != nil {
-		h.logger.Warn("Failed to get entrance info", "callID", callID, "error", err)
-		return
-	}
-
-	// get flat
-	flatID, err := h.repo.Households.GetFlatIDByApartment(context.Background(), apartment, domophone.HouseDomophoneID)
-	if err != nil {
-		h.logger.Warn("Failed to get flatID", "callID", callID, "error", err)
-		return
-	}
-
-	// make data structure
-	callData := &CallData{
-		CallID:      callID,
-		Apartment:   apartment,
-		DomophoneIP: host,
-		StartTime:   timestamp,
-		CallType:    callType,
-		Answered:    false,
-		DoorOpened:  false,
-		Domophone:   domophone,
-		Entrance:    entrance,
-		FlatID:      flatID,
-	}
-
-	// store cameraId if exist
-	if entrance.CameraID != nil {
-		callData.CameraID = *entrance.CameraID
-	}
-
-	h.activeCalls[callID] = callData
-
-	h.logger.Info("️️️️️️⚠️️️ Call started - data collected",
-		"callID", callID,
-		"apartment", apartment,
-		"domophone", domophone.HouseDomophoneID,
-		"flatID", flatID)
-
-	// get cam screenshot
-	go h.getCallScreenshots(callData)
-}
-
-// utils,  get callID and apartment
-func (h *BewardHandler) extractCallID(message string) (int, error) {
-	start := strings.Index(message, "[")
-	if start == -1 {
-		return 0, fmt.Errorf("opening bracket not found")
-	}
-
-	end := strings.Index(message, "]")
-	if end == -1 || end <= start {
-		return 0, fmt.Errorf("closing bracket not found or invalid position")
-	}
-
-	callIDStr := message[start+1 : end]
-	callIDStr = strings.TrimSpace(callIDStr)
-
-	callID, err := strconv.Atoi(callIDStr)
-	if err != nil {
-		return 0, fmt.Errorf("call ID is not a valid number: %s", callIDStr)
-	}
-
-	return callID, nil
-}
-
-func (h *BewardHandler) extractApartment(message string) (int, error) {
-	if idx := strings.Index(message, "apartment "); idx != -1 {
-		start := idx + len("apartment ")
-		end := strings.IndexAny(message[start:], " ,!].")
-		if end == -1 {
-			end = len(message) - start
-		}
-
-		apartmentStr := strings.TrimSpace(message[start : start+end])
-		return strconv.Atoi(apartmentStr)
-	}
-	return 0, fmt.Errorf("apartment not found in message")
-}
-
-func (h *BewardHandler) extractSIPCallID(message string) (int, error) {
-	if idx := strings.Index(message, "SIP call "); idx != -1 {
-		start := idx + len("SIP call ")
-		end := strings.IndexAny(message[start:], " ]")
-		if end == -1 {
-			end = len(message) - start
-		}
-
-		sipCallIDStr := strings.TrimSpace(message[start : start+end])
-		sipCallID, err := strconv.Atoi(sipCallIDStr)
-		if err != nil {
-			return 0, fmt.Errorf("SIP call ID '%s' is not a valid number", sipCallIDStr)
-		}
-
-		return sipCallID, nil
-	}
-	return 0, fmt.Errorf("SIP call pattern not found in message")
-}
-
-//func (h *BewardHandler) extractSIPCallID(message string) string {
-//	// Ищем паттерн "SIP call X"
-//	if idx := strings.Index(message, "SIP call "); idx != -1 {
-//		start := idx + len("SIP call ")
-//		end := strings.IndexAny(message[start:], " ]")
-//		if end == -1 {
-//			return message[start:]
-//		}
-//		return message[start : start+end]
-//	}
-//	return ""
-//}
-
-func (h *BewardHandler) HandleCallAnswered(timestamp *time.Time, host string, message string, callID int) {
-	// TODO: implement me!
-	h.logger.Info("⚠️ HandleCallAnswered start")
-
-	h.callMutex.Lock()
-	defer h.callMutex.Unlock()
-
-	callData, exists := h.activeCalls[callID]
-	if !exists {
-		h.logger.Debug("Call answered for unknown call", "callID", callID)
-		return
-	}
-
-	callData.Answered = true
-
-	h.logger.Info("Call answered",
-		"callID", callID,
-		"apartment", callData.Apartment)
-}
-
-func (h *BewardHandler) HandleDoorOpen(timestamp *time.Time, host string, message string, callID int) {
-	// TODO: implement me!
-	// set door opened for call state
-	h.logger.Info("⚠️ HandleDoorOpen start")
-
-	h.callMutex.Lock()
-	defer h.callMutex.Unlock()
-
-	callData, exists := h.activeCalls[callID]
-	if !exists {
-		h.logger.Debug("Call door open for unknown call", "callID", callID)
-	}
-
-	callData.DoorOpened = true
-	h.logger.Info("Door has opened by call",
-		"callID", callID,
-		"apartment", callData.Apartment)
-}
-
-func (h *BewardHandler) HandleCallEnd(timestamp *time.Time, host string, message string, callID int) {
-	// TODO: implement me!
-	h.logger.Info("⚠️ HandleCallEnd start")
-
-	h.callMutex.Lock()
-	defer h.callMutex.Unlock()
-
-	callData, exists := h.activeCalls[callID]
-	if !exists {
-		h.logger.Debug("Call end for unknown call", "callID", callID)
-		return
-	}
-
-	callData.EndTime = timestamp
-	h.logger.Info("Call ended, prepare event",
-		"callID", callID,
-		"apartment", callData.Apartment,
-		"answered", callData.Answered,
-		"doorOpen", callData.DoorOpened,
-	)
-
-	// process make event
-	go h.processCallEvent(callData)
-}
-
-func (h *BewardHandler) HandleAllCallsDone(timestamp *time.Time, host string, message string, callID int) {
-	// TODO: implement me!
-	h.logger.Info("⚠️ HandleAllCallsDone start")
-}
-
-func (h *BewardHandler) processCallEvent(callData *CallData) {
-	// process event
-	startTime := time.Now()
-	h.logger.Info("Starting call event processing",
-		"callId", callData.CallID,
-		"apartment", callData.Apartment)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// get
-}
-
-func (h *BewardHandler) getCallScreenshots(callData *CallData) {
-	// TODO : implement get image from cam and best screen from FRS service
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	h.logger.Info("Starting call screenshots processing", "callId", callData.CallID)
-
-	// 1 get screen from camera domophone
-	// 2 get image from FRS (optional)
-	// 3 store image
-	// 4 update callData
 }
