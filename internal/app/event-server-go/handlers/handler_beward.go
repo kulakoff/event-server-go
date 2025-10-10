@@ -988,7 +988,7 @@ func (h *BewardHandler) HandleAllCallsDone(timestamp *time.Time, host string, me
 		}
 	}
 
-	h.logger.Info("All calls completed for apartment", "apartment", apartment)
+	h.logger.Info("🎃 All calls completed for apartment", "apartment", apartment)
 }
 
 //func (h *BewardHandler) processCallEvent(callData *CallData) {
@@ -1180,7 +1180,7 @@ func (h *BewardHandler) saveFinalCallEvent(callData *CallData, fileID string) {
 	if err != nil {
 		h.logger.Warn("Failed to insert final call event to plog", "callID", callData.CallID, "error", err)
 	} else {
-		h.logger.Info("Final call event saved to plog",
+		h.logger.Info("🎃 - Final call event saved to plog",
 			"callID", callData.CallID,
 			"apartment", callData.Apartment,
 			"eventType", eventType,
@@ -1452,4 +1452,6 @@ func (h *BewardHandler) HandleDebugCode(timestamp *time.Time, host, message stri
 }
 func (h *BewardHandler) HandleDebug(timestamp *time.Time, host, message string) {
 	h.logger.Debug("HandleMessage | HandleDebugCode", "timestamp", timestamp)
+	fakeMsg := "Opening door by RFID 00000004030201, apartment 0"
+	h.HandleOpenByRFID(timestamp, host, fakeMsg)
 }
