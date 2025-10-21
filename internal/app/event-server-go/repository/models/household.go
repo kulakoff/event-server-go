@@ -12,7 +12,7 @@ type HouseEntrance struct {
 	Shared           *int     `json:"shared"`
 	Plog             *int     `json:"plog"`
 	CallerID         *string  `json:"caller_id"`
-	CameraID         *int     `json:"camera_id"`
+	CameraID         *int     `json:"camera_id,omitempty"`
 	HouseDomophoneID int      `json:"house_domophone_id"`
 	DomophoneOutput  *int     `json:"domophone_output"`
 	CMS              *string  `json:"cms"`
@@ -80,5 +80,64 @@ type RFID struct {
 	AccessTo    int     `json:"access_to"`
 	LastSeen    *int    `json:"last_seen"`
 	Comments    *string `json:"comments"`
-	Watch       int     `json:"watch"`
+	//Watch       int     `json:"watch"`
+}
+
+type Watcher struct {
+	WatcherID   int    `json:"house_watcher_id"`
+	DeviceID    int    `json:"subscriber_device_id"`
+	FlatID      int    `json:"house_flat_id"`
+	EventType   string `json:"event_type"` // int or str
+	EventDetail string `json:"event_detail"`
+	Comments    string `json:"comments"`
+}
+
+//rbt=# \d houses_subscribers_devices;
+//Table "public.houses_subscribers_devices"
+//Column        |       Type        | Collation | Nullable |                                 Default
+//----------------------+-------------------+-----------+----------+--------------------------------------------------------------------------
+//subscriber_device_id | integer           |           | not null | nextval('houses_subscribers_devices_subscriber_device_id_seq'::regclass)
+//house_subscriber_id  | integer           |           |          |
+//device_token         | character varying |           |          |
+//auth_token           | character varying |           |          |
+//platform             | integer           |           |          |
+//push_token           | character varying |           |          |
+//push_token_type      | integer           |           |          |
+//voip_token           | character varying |           |          |
+//registered           | integer           |           |          |
+//last_seen            | integer           |           |          |
+//voip_enabled         | integer           |           |          |
+//ua                   | character varying |           |          |
+//ip                   | character varying |           |          |
+//push_disable         | integer           |           |          | 0
+//money_disable        | integer           |           |          | 0
+//version              | character varying |           |          |
+//bundle               | character varying |           |          | 'default'::character varying
+//Indexes:
+//"houses_subscribers_devices_pkey" PRIMARY KEY, btree (subscriber_device_id)
+//"houses_subscribers_devices_device_token" btree (device_token)
+//"houses_subscribers_devices_house_subscriber_id" btree (house_subscriber_id)
+//"houses_subscribers_devices_uniq_2" UNIQUE, btree (auth_token)
+//"houses_subscribers_devices_uniq_3" UNIQUE, btree (push_token)
+//
+//rbt=#
+
+type MobileDevice struct {
+	DeviceID      int    `json:"subscriber_device_id"`
+	SubscriberID  int    `json:"house_subscriber_id"`
+	DeviceToken   string `json:"device_token"`
+	AuthToken     string `json:"auth_token"`
+	Platform      int    `json:"platform"`
+	PushToken     string `json:"push_token"`
+	PushTokenType int    `json:"push_token_type"`
+	VoipToken     string `json:"voip_token"`
+	Registered    int    `json:"registered"`
+	LastSeen      int    `json:"last_seen"`
+	VoipEnabled   int    `json:"voip_enabled"`
+	UA            string `json:"ua"`
+	IP            string `json:"ip"`
+	PushDisable   int    `json:"push_disabled"`
+	MoneyDisable  int    `json:"money_disabled"`
+	Version       string `json:"version"`
+	Bundle        string `json:"bundle"`
 }
