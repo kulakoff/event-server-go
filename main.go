@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/feature"
 	handlers2 "github.com/kulakoff/event-server-go/internal/app/event-server-go/handlers"
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/repository"
@@ -130,7 +131,19 @@ func startServer() {
 		close(shutdownDone)
 	}()
 
-	// Ждем либо завершения, либо таймаута
+	// dot animation
+	go func() {
+		for {
+			select {
+			case <-shutdownDone:
+				return
+			case <-time.After(500 * time.Millisecond):
+				fmt.Print(".")
+			}
+		}
+	}()
+
+	// Waiting for completion or timeout
 	select {
 	case <-shutdownDone:
 		logger.Info("✅ All services stopped gracefully")
@@ -138,7 +151,6 @@ func startServer() {
 		logger.Warn("⚠️  Shutdown timeout - forcing application exit")
 	}
 
-	//wg.Wait() // waiting for all servers to complete
 }
 
 // wrapper for usage wg sync

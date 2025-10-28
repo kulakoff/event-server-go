@@ -285,6 +285,7 @@ func (s *StreamProcessor) processOpenByAPP(ctx context.Context, event DoorOpenEv
 	s.logger.Debug("processOpenByAPP")
 
 	var faceData map[string]interface{} // face data stub
+	var domophoneData map[string]interface{}
 	var imageGUIDv4 string
 	eventGUIDv4 := uuid.New().String()
 	preview := PREVIEW_IPCAM
@@ -296,15 +297,25 @@ func (s *StreamProcessor) processOpenByAPP(ctx context.Context, event DoorOpenEv
 		return false
 	}
 
+	domophoneData = map[string]interface{}{
+		"domophone_description": entrance.Entrance,
+		"domophone_id":          event.DomophoneId,
+		"domophone_output":      entrance.DomophoneOutput,
+		"entrance_id":           entrance.HouseEntranceID,
+		"house_id":              entrance.AddressHouseID,
+	}
+
 	// Entrance not usage camera
 	if entrance.CameraID == nil {
 		s.logger.Debug("Entrance not usage camera, set PREVIEW mode 0")
 		preview = PREVIEW_NONE
 		imageGUIDv4 = IMAGE_UUID_STUB
+		domophoneData["camera_id"] = ""
 	}
 
 	// camera found
 	if entrance.CameraID != nil {
+		domophoneData["camera_id"] = *entrance.CameraID
 		camera, err := s.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
 		if err != nil {
 			s.logger.Error("Failed to get camera")
@@ -358,7 +369,6 @@ func (s *StreamProcessor) processOpenByAPP(ctx context.Context, event DoorOpenEv
 		// generate image_uuid
 		imageGUIDv4 = utils.ToGUIDv4(fileId)
 	}
-
 	flatList, err := s.repo.Households.FlatIDsByDomophoneIDAndPhone(ctx, event.DomophoneId, event.Detail)
 	if err != nil {
 		s.logger.Debug("Failed to get flatIDs", "err", err)
@@ -373,19 +383,12 @@ func (s *StreamProcessor) processOpenByAPP(ctx context.Context, event DoorOpenEv
 			"hidden":     0,
 			"image_uuid": imageGUIDv4,
 			"flat_id":    flatID,
-			"domophone": map[string]interface{}{
-				"camera_id":             *entrance.CameraID,
-				"domophone_description": entrance.Entrance,
-				"domophone_id":          event.DomophoneId,
-				"domophone_output":      entrance.DomophoneOutput,
-				"entrance_id":           entrance.HouseEntranceID,
-				"house_id":              entrance.AddressHouseID,
-			},
-			"event":  EVENT_OPENED_BY_APP,
-			"opened": 1, // bool
-			"face":   faceData,
-			"rfid":   "",
-			"code":   "",
+			"domophone":  domophoneData,
+			"event":      EVENT_OPENED_BY_APP,
+			"opened":     1, // bool
+			"face":       faceData,
+			"rfid":       "",
+			"code":       "",
 			"phones": map[string]interface{}{
 				"user_phone": event.Detail,
 			},
