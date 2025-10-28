@@ -2,6 +2,7 @@ package feature
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -18,10 +19,12 @@ import (
 )
 
 const (
-	PREVIEW_NONE               = 0
-	PREVIEW_IPCAM              = 1
-	PREVIEW_FRS                = 2
-	TTL_CAMSHOT_HOURS          = time.Hour * 24 * 30 * 6
+	PREVIEW_NONE  = 0
+	PREVIEW_IPCAM = 1
+	PREVIEW_FRS   = 2
+
+	TTL_CAMSHOT_HOURS = time.Hour * 24 * 30 * 6
+
 	EVENT_UNANSWERED_CALL      = 1
 	EVENT_ANSWERED_CALL        = 2
 	EVENT_OPENED_BY_KEY        = 3
@@ -30,7 +33,16 @@ const (
 	EVENT_OPENED_BY_CODE       = 6
 	EVENT_OPENED_GATES_BY_CALL = 7
 	EVENT_OPENED_BY_VEHICLE    = 9
-	MONGO_SCREENSHOT_NAME      = "camshot"
+
+	MONGO_SCREENSHOT_NAME = "camshot"
+)
+
+// FIXME:
+const API_URL_RBT = "https://rbt-demo.lanta.me:55544/internal"
+const IMAGE_UUID_STUB = "00000000-0000-0000-0000-000000000000"
+const (
+	DOOR_MAIN      = 0
+	DOOR_SECONDARY = 1
 )
 
 // DoorOpenEvent - parse structure from php backend
@@ -38,7 +50,7 @@ type DoorOpenEvent struct {
 	Date        int64  `json:"date"`
 	DomophoneId int    `json:"domophone_id"`
 	IP          string `json:"ip"`
-	SubID       *int64 `json:"sub_id"` // может быть null
+	SubID       *int64 `json:"sub_id,omitempty"`
 	EventType   int    `json:"event_type"`
 	Door        int    `json:"door"`
 	Detail      string `json:"detail"`
@@ -97,10 +109,6 @@ func (s *StreamProcessor) Start(ctx context.Context) error {
 		go s.worker(ctx, fmt.Sprintf("worker_%d", i))
 	}
 
-	// Start pending worker, process failed task
-	//s.wg.Add(1)
-	//go s.pendingWorker(ctx)
-
 	s.logger.Info("Stream processor started",
 		"workers", s.config.WorkersCount,
 		"stream", s.config.StreamName,
@@ -143,7 +151,7 @@ func (s *StreamProcessor) worker(ctx context.Context, workerName string) {
 				"processed", processedCount)
 			return
 		default:
-			// Читаем сообщения из stream
+			// Read messages from stream
 			result, err := s.redis.Client.XReadGroup(ctx, &redis.XReadGroupArgs{
 				Group:    s.config.GroupName,
 				Consumer: workerName,
@@ -154,7 +162,7 @@ func (s *StreamProcessor) worker(ctx context.Context, workerName string) {
 
 			if err != nil {
 				if err == redis.Nil {
-					// Таймаут - нет новых сообщений
+					// timeout - new messages not found. TODO: refactor "error.is"
 					continue
 				}
 				s.logger.Error("Error reading from stream",
@@ -164,13 +172,14 @@ func (s *StreamProcessor) worker(ctx context.Context, workerName string) {
 				continue
 			}
 
-			// Обрабатываем полученные сообщения
+			// Process messages fom stream
 			for _, stream := range result {
 				for _, message := range stream.Messages {
 					processedCount++
 
-					if s.processDoorEvent(message, workerName) {
-						// Подтверждаем обработку
+					// process event task
+					if s.processEvent(ctx, message, workerName) {
+						// confirm processing
 						err := s.redis.Client.XAck(
 							ctx,
 							stream.Stream,
@@ -194,9 +203,9 @@ func (s *StreamProcessor) worker(ctx context.Context, workerName string) {
 							"message_id", message.ID)
 					}
 
-					// Логируем прогресс каждые 10 сообщений
+					// logging every 10 messages
 					if processedCount%10 == 0 {
-						s.logger.Info("Worker progress",
+						s.logger.Debug("Worker progress",
 							"worker", workerName,
 							"processed", processedCount)
 					}
@@ -206,9 +215,9 @@ func (s *StreamProcessor) worker(ctx context.Context, workerName string) {
 	}
 }
 
-// processDoorEvent - process single event
-func (s *StreamProcessor) processDoorEvent(message redis.XMessage, workerName string) bool {
-	// Извлекаем payload
+// processEvent - process single event
+func (s *StreamProcessor) processEvent(ctx context.Context, message redis.XMessage, workerName string) bool {
+	// get payload from message
 	payload, ok := message.Values["payload"].(string)
 	if !ok {
 		s.logger.Error("Invalid payload format",
@@ -217,7 +226,6 @@ func (s *StreamProcessor) processDoorEvent(message redis.XMessage, workerName st
 		return false
 	}
 
-	// Парсим JSON с данными события
 	var event DoorOpenEvent
 	err := json.Unmarshal([]byte(payload), &event)
 	if err != nil {
@@ -228,7 +236,7 @@ func (s *StreamProcessor) processDoorEvent(message redis.XMessage, workerName st
 		return false
 	}
 
-	// Основная логика обработки события
+	// >> processing event
 	s.logger.Debug("Processing door event",
 		"worker", workerName,
 		"ip", event.IP,
@@ -236,48 +244,188 @@ func (s *StreamProcessor) processDoorEvent(message redis.XMessage, workerName st
 		"door", event.Door,
 		"detail", event.Detail)
 
-	// TODO: Замените на вашу реальную логику сохранения в БД
+	return s.storeEvent(ctx, event)
+}
 
-	success := s.saveToDatabase(event)
-	if !success {
-		s.logger.Error("Failed to save event to database",
-			"worker", workerName,
-			"message_id", message.ID)
+// storeEvent - storage data
+func (s *StreamProcessor) storeEvent(ctx context.Context, event DoorOpenEvent) bool {
+	type EventType int
+	switch EventType(event.EventType) {
+	case EVENT_OPENED_BY_APP: // Event open by APP (API)
+		return s.processOpenByAPP(ctx, event)
+	case EVENT_OPENED_BY_FACE: // Event open by FRS service
+		return s.processOpenByFRS(ctx, event)
+	default:
+		s.logger.Warn("unsupported Event type")
 		return false
+	}
+}
+
+// processOpenByAPP - process events open mobile app
+func (s *StreamProcessor) processOpenByAPP(ctx context.Context, event DoorOpenEvent) bool {
+	// TODO: implement process alt door open by app
+
+	s.logger.Debug("processOpenByAPP")
+
+	var faceData map[string]interface{} // face data stub
+	imageGUIDv4 := ""
+	preview := PREVIEW_IPCAM
+
+	// get entrance
+	entrance, err := s.repo.Households.GetEntrance(ctx, event.DomophoneId, event.Door)
+	if err != nil {
+		s.logger.Error("Failed to get entrance", "event", event)
+		return false
+	}
+
+	// Entrance not usage camera
+	if entrance.CameraID == nil {
+		s.logger.Debug("Entrance not usage camera, set PREVIEW mode 0")
+		preview = PREVIEW_NONE
+		imageGUIDv4 = IMAGE_UUID_STUB
+	}
+
+	// camera found
+	if entrance.CameraID != nil {
+		camera, err := s.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
+		if err != nil {
+			s.logger.Error("Failed to get camera")
+			return false
+		}
+
+		// 01 - get screenshot from domophone camera
+		imgURL := API_URL_RBT + "/frs/camshot/" + strconv.Itoa(camera.CameraID)
+		s.logger.Debug("Open by RFID", "_imageUrl >>", imgURL)
+
+		var camScreenShot []byte
+		camScreenShot, err = utils.DownloadFile(imgURL)
+		if err != nil {
+			preview = PREVIEW_NONE
+			s.logger.Warn("Failed to get image from camera API, set preview mode 0", "err", err)
+		}
+
+		// check best quality image from FRS service
+		bqResponse, _ := utils.GetBestQuality(s.frsApi, *entrance.CameraID, time.Now())
+		if bqResponse != nil {
+			camScreenShot, err = utils.DownloadFile(bqResponse.Data.Screenshot)
+			if err != nil {
+				s.logger.Error("Failed to download screenshot")
+				return false
+			}
+
+			preview = PREVIEW_FRS
+
+			faceData = map[string]interface{}{
+				"left":   bqResponse.Data.Left,
+				"top":    bqResponse.Data.Top,
+				"width":  bqResponse.Data.Width,
+				"height": bqResponse.Data.Height,
+			}
+		} else {
+			s.logger.Debug("NO image from FRS service")
+		}
+
+		metadata := map[string]interface{}{
+			"contentType": "image/jpeg",
+			"expire":      int32(time.Unix(event.Date, 0).Add(TTL_CAMSHOT_HOURS).Unix()),
+		}
+
+		// save data to MongoDb
+		fileId, err := s.fsFiles.SaveFile(MONGO_SCREENSHOT_NAME, metadata, camScreenShot)
+		if err != nil {
+			s.logger.Debug("MongoDB SaveFile", "err", err)
+		}
+
+		// generate image_uuid
+		imageGUIDv4 = utils.ToGUIDv4(fileId)
+	}
+
+	flatList, err := s.repo.Households.FlatIDsByDomophoneIDAndPhone(ctx, event.DomophoneId, event.Detail)
+	if err != nil {
+		s.logger.Debug("Failed to get flatIDs", "err", err)
+		return false
+	}
+
+	for _, flatID := range flatList {
+		eventGUIDv4 := uuid.New().String()
+		plogData := map[string]interface{}{
+			"date":       event.Date,
+			"event_uuid": eventGUIDv4,
+			"hidden":     0,
+			"image_uuid": imageGUIDv4,
+			"flat_id":    flatID,
+			"domophone": map[string]interface{}{
+				"camera_id":             *entrance.CameraID,
+				"domophone_description": entrance.Entrance,
+				"domophone_id":          event.DomophoneId,
+				"domophone_output":      entrance.DomophoneOutput,
+				"entrance_id":           entrance.HouseEntranceID,
+				"house_id":              entrance.AddressHouseID,
+			},
+			"event":  EVENT_OPENED_BY_APP,
+			"opened": 1, // bool
+			"face":   faceData,
+			"rfid":   "",
+			"code":   "",
+			"phones": map[string]interface{}{
+				"user_phone": event.Detail,
+			},
+			"preview": preview, // 0 no image, 1 - image from DVR, 2 - image from FRS
+		}
+
+		plogDataString, err := json.Marshal(plogData)
+		if err != nil {
+			s.logger.Debug("Failed marshal JSON")
+		}
+
+		err = s.storage.Insert("plog", string(plogDataString))
+		if err != nil {
+			s.logger.Error("Error insert to plog", "err", err)
+		}
 	}
 
 	return true
 }
 
-// saveToDatabase - storage data
-func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
+// processOpenByFRS - process events open by FRS service
+func (s *StreamProcessor) processOpenByFRS(ctx context.Context, event DoorOpenEvent) bool {
 	var faceId, frsEventId string
 	var faceData map[string]interface{}
-	eventDetail := strings.Split(event.Detail, "|")
+	door := DOOR_MAIN
 
-	if len(eventDetail) == 2 {
-		faceId = eventDetail[0]
-		frsEventId = eventDetail[1]
+	if event.EventType == EVENT_OPENED_BY_FACE {
+		eventDetail := strings.Split(event.Detail, "|")
+		if len(eventDetail) == 2 {
+			faceId = eventDetail[0]
+			frsEventId = eventDetail[1]
+		}
 	} else {
+		s.logger.Warn("event type err")
 		return false
 	}
 
-	door := 0
 	eventGUIDv4 := uuid.New().String()
 
 	// get entrance
-	entrance, err := s.repo.Households.GetEntrance(context.Background(), event.DomophoneId, door)
+	entrance, err := s.repo.Households.GetEntrance(ctx, event.DomophoneId, door)
 	if err != nil {
 		s.logger.Error("Failed to get entrance")
 		return false
 	}
 
-	// TODO: camera not usage??
-	camera, err := s.repo.Cameras.GetCamera(context.Background(), *entrance.CameraID)
+	// ----- get home data
+	house, err := s.repo.Households.GetHouseByEntranceID(ctx, entrance.HouseEntranceID)
+	if err != nil {
+		s.logger.Warn("Failed to get house", "error", err)
+	}
+
+	camera, err := s.repo.Cameras.GetCamera(ctx, *entrance.CameraID)
 	if err != nil {
 		s.logger.Error("Failed to get camera")
 		return false
 	}
+
+	// get screenShot from FRS service
 	var camScreenShot []byte
 	bqResponse, _ := utils.GetBestQualityByEvent(s.frsApi, *entrance.CameraID, frsEventId)
 	if bqResponse != nil {
@@ -288,6 +436,14 @@ func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
 			"width":  bqResponse.Data.Width,
 			"height": bqResponse.Data.Height,
 		}
+	}
+
+	// push crutch
+	// hash for push event
+	hash := fmt.Sprintf("%x", md5.Sum([]byte(uuid.New().String())))
+	shotKey := "shot_" + hash
+	if err := s.redis.Client.SetEx(ctx, shotKey, camScreenShot, 15*60*time.Second).Err(); err != nil {
+		s.logger.Debug("failed to save screenshot to Redis", "err", err)
 	}
 
 	metadata := map[string]interface{}{
@@ -304,7 +460,14 @@ func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
 	// generate image_uuid
 	imageGUIDv4 := utils.ToGUIDv4(fileId)
 
-	flatList, _ := s.repo.Households.GetFlatsByFaceIdFrs(context.Background(), faceId, strconv.Itoa(event.DomophoneId))
+	flatList, _ := s.repo.Households.GetFlatsByFaceIdFrs(ctx, faceId, strconv.Itoa(event.DomophoneId))
+
+	// push crutch
+	flatDetail, err := s.repo.Households.GetFlatByID(ctx, flatList[0])
+	if err != nil {
+		s.logger.Debug("Failed to get flat", "err", err)
+		return false
+	}
 
 	plogData := map[string]interface{}{
 		"date":       event.Date,
@@ -338,12 +501,27 @@ func (s *StreamProcessor) saveToDatabase(event DoorOpenEvent) bool {
 		s.logger.Error("Error insert to plog", "err", err)
 	}
 
-	// TODO: work imitation
-	time.Sleep(50 * time.Millisecond)
+	// FIXME: push crutch
+	// get watchers
+	watchers, err := s.repo.Households.GetWatchersByFlatID(ctx, flatDetail.HouseFlatID)
+	if err != nil {
+		s.logger.Warn("Failed to get watchers", "error", err)
+	}
 
-	// TODO: 95% true, 5% false for test
-	if time.Now().UnixNano()%100 < 5 {
-		return false
+	if watchers != nil && len(watchers) > 0 {
+		for _, watcher := range watchers {
+			// watch FACE EVENT
+			if watcher.EventType == strconv.Itoa(EVENT_OPENED_BY_FACE) {
+				msgTitle := "Открытие двери"
+				addressStr := house.HouseFull + "кв." + flatDetail.Flat
+				msgBody := fmt.Sprintf("Адрес: %s\nПерсона: %s\n", addressStr, "имя жильца")
+				device, _ := s.repo.Households.GetMobileDeviceByID(ctx, watcher.DeviceID)
+
+				go utils.SendPush(hash, msgTitle, msgBody, device.PushToken, device.PushTokenType, device.Platform)
+			}
+		}
+	} else {
+		s.logger.Debug("Watchers not found")
 	}
 
 	return true
@@ -386,7 +564,7 @@ func (s *StreamProcessor) pendingWorker(ctx context.Context) {
 					"count", len(messages))
 
 				for _, msg := range messages {
-					if s.processDoorEvent(msg, workerName) {
+					if s.processEvent(ctx, msg, workerName) {
 						s.redis.Client.XAck(ctx, s.config.StreamName, s.config.GroupName, msg.ID)
 					}
 				}

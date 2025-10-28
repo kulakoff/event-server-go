@@ -92,36 +92,6 @@ type Watcher struct {
 	Comments    string `json:"comments"`
 }
 
-//rbt=# \d houses_subscribers_devices;
-//Table "public.houses_subscribers_devices"
-//Column        |       Type        | Collation | Nullable |                                 Default
-//----------------------+-------------------+-----------+----------+--------------------------------------------------------------------------
-//subscriber_device_id | integer           |           | not null | nextval('houses_subscribers_devices_subscriber_device_id_seq'::regclass)
-//house_subscriber_id  | integer           |           |          |
-//device_token         | character varying |           |          |
-//auth_token           | character varying |           |          |
-//platform             | integer           |           |          |
-//push_token           | character varying |           |          |
-//push_token_type      | integer           |           |          |
-//voip_token           | character varying |           |          |
-//registered           | integer           |           |          |
-//last_seen            | integer           |           |          |
-//voip_enabled         | integer           |           |          |
-//ua                   | character varying |           |          |
-//ip                   | character varying |           |          |
-//push_disable         | integer           |           |          | 0
-//money_disable        | integer           |           |          | 0
-//version              | character varying |           |          |
-//bundle               | character varying |           |          | 'default'::character varying
-//Indexes:
-//"houses_subscribers_devices_pkey" PRIMARY KEY, btree (subscriber_device_id)
-//"houses_subscribers_devices_device_token" btree (device_token)
-//"houses_subscribers_devices_house_subscriber_id" btree (house_subscriber_id)
-//"houses_subscribers_devices_uniq_2" UNIQUE, btree (auth_token)
-//"houses_subscribers_devices_uniq_3" UNIQUE, btree (push_token)
-//
-//rbt=#
-
 type MobileDevice struct {
 	DeviceID      int    `json:"subscriber_device_id"`
 	SubscriberID  int    `json:"house_subscriber_id"`
@@ -140,4 +110,18 @@ type MobileDevice struct {
 	MoneyDisable  int    `json:"money_disabled"`
 	Version       string `json:"version"`
 	Bundle        string `json:"bundle"`
+}
+
+type House struct {
+	HouseID       int      `json:"address_house_id"`
+	SettlementID  *int     `json:"address_settlement_id,omitempty"`
+	StreetID      int      `json:"address_street_id"`
+	HouseUUID     string   `json:"house_uuid"`
+	HouseType     string   `json:"house_type"`
+	HouseTypeFull string   `json:"house_type_full"`
+	HouseFull     string   `json:"house_full"`
+	House         string   `json:"house"`
+	Lat           *float64 `json:"lat,omitempty"`
+	Lon           *float64 `json:"lon,omitempty"`
+	CompanyID     int      `json:"company_id"`
 }

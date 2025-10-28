@@ -6,12 +6,18 @@ import (
 	"fmt"
 	"github.com/kulakoff/event-server-go/internal/app/event-server-go/config"
 	"io/ioutil"
+	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
+
+const PUSH_SERVICE_URL = "https://isdn.lanta.me/isdn_api.php"
+const PUSH_SERVICE_TOKEN = "qqq"
 
 type FRSFaceData struct {
 	Screenshot string `json:"screenshot"`
@@ -200,4 +206,83 @@ func ExtractRFIDKey(message string) string {
 		return match[1]
 	}
 	return ""
+}
+
+// SendGetRequest -
+func SendGetRequest(url string, headers map[string]string) (int, string, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Добавляем заголовки если есть
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	return resp.StatusCode, string(body), nil
+}
+
+// example push
+func SendPush(hashImage, title, message, deviceToken string, tokenType, platform int) error {
+	apiToken := os.Getenv("PUSH_SERVICE_TOKEN")
+	if apiToken == "" {
+		apiToken = PUSH_SERVICE_TOKEN // Provide a default value
+	}
+	var devicePlatform string
+	if platform == 0 {
+		devicePlatform = "android"
+	}
+	if platform == 1 {
+		devicePlatform = "iphone"
+	}
+	baseURL := PUSH_SERVICE_URL
+	queryParams := url.Values{}
+
+	queryParams.Add("action", "push")
+	queryParams.Add("secret", apiToken) // FIXME: isdn auth
+	queryParams.Add("token", deviceToken)
+	queryParams.Add("type", strconv.Itoa(tokenType))
+	queryParams.Add("timestamp", strconv.FormatInt(time.Now().Unix(), 10))
+	queryParams.Add("ttl", "30")
+	queryParams.Add("platform", devicePlatform)
+	queryParams.Add("title", title)
+	queryParams.Add("msg", message)
+	queryParams.Add("sound", "default")
+	queryParams.Add("pushAction", "paranoid")
+	queryParams.Add("hash", hashImage)
+
+	fullURL := baseURL + "?" + queryParams.Encode()
+
+	slog.Debug("sendPush", "url", fullURL)
+	startTime := time.Now()
+	statusCode, body, err := SendGetRequest(fullURL, nil)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		slog.Error("FAILED to send debug push", "error", err, "duration", duration)
+		return err
+	}
+
+	response := strings.TrimSpace(body)
+	slog.Info("✅ Push server response", "status", statusCode, "response", response, "duration", duration.Seconds())
+
+	if statusCode != 200 || response != "success" {
+		return fmt.Errorf("push failed: %s", response)
+	}
+
+	return nil
 }

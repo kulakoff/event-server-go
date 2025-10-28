@@ -101,7 +101,7 @@ func (r *CameraRepositoryImpl) GetCamera(ctx context.Context, id int) (*models.C
 
 func (r *CameraRepositoryImpl) GetCameraByIP(ctx context.Context, ip string) (*models.Camera, error) {
 	//TODO: implement me
-	r.logger.Debug("GetCameraByIP", "camera_id", ip)
+	r.logger.Debug("GetCameraByIP", "camera_ip", ip)
 
 	query := `
         SELECT camera_id, enabled, model, url, stream, credentials, name, dvr_stream, timezone, 

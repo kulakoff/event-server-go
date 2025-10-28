@@ -74,19 +74,19 @@ func startServer() {
 		logger.Warn("Error loading spam filters", "error", err)
 	}
 
-	// ----- Beward syslog_custom server
-	bewardHandler := handlers2.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo, cfg.RbtApi, cfg.FrsApi)
-	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
-
-	// start servers
-	go startServerWithWG(bewardServer, ctx, &wg)
-
 	// start redis stream process
 	redis, err := storage2.NewRedisStorage(logger, cfg.Redis)
 	if err != nil {
 		logger.Error("Error init Redis", "error", err)
 	}
 	redis.Ping(ctx)
+
+	// ----- Beward syslog_custom server
+	bewardHandler := handlers2.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo, cfg.RbtApi, cfg.FrsApi, redis.Client)
+	bewardServer := syslog_custom.New(cfg.Hw.Beward.Port, "Beward", logger, bewardHandler)
+
+	// start servers
+	go startServerWithWG(bewardServer, ctx, &wg)
 
 	// TODO: refactor config
 	streamProcessConfig := feature.StreamProcessorConfig{
