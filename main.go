@@ -27,9 +27,7 @@ func main() {
 
 // test implementation
 func startServer() {
-
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	logger.Info("app started")
 
 	// context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -43,21 +41,22 @@ func startServer() {
 		logger.Warn("Error loading config file", "error", err)
 	}
 
-	// clickhouse init
+	// init clickhouse
 	ch, err := storage2.NewClickhouseHttpClient(logger, cfg.Clickhouse)
 	if err != nil {
 		logger.Error("Error init Clickhouse", "error", err)
 		os.Exit(1)
 	}
 
-	// mongodb init
-	mongo, err := storage2.NewMongoDb(logger, cfg.MongoDb)
+	// init mongodb
+	mongo, err := storage2.NewMongoDb(ctx, logger, cfg.MongoDb)
 	if err != nil {
 		logger.Error("Error init MongoDB", "error", err)
 		os.Exit(1)
 	}
+	defer mongo.Close()
 
-	// postgres init
+	// init postgres
 	psqlStorage, err := storage2.NewPSQLStorage(logger, cfg.Postgres)
 	if err != nil {
 		logger.Error("Error init PSQLStorage", "error", err)
@@ -74,12 +73,16 @@ func startServer() {
 		logger.Warn("Error loading spam filters", "error", err)
 	}
 
-	// start redis stream process
+	// init redis
 	redis, err := storage2.NewRedisStorage(logger, cfg.Redis)
 	if err != nil {
 		logger.Error("Error init Redis", "error", err)
 	}
-	redis.Ping(ctx)
+	err = redis.Ping(ctx)
+	if err != nil {
+		logger.Error("Error init Redis", "error", err)
+		return
+	}
 
 	// ----- Beward syslog_custom server
 	bewardHandler := handlers2.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo, cfg.RbtApi, cfg.FrsApi, redis.Client)
@@ -116,7 +119,7 @@ func startServer() {
 	logger.Info("🚀 Application is running. Press Ctrl+C to stop.")
 	<-signalCh
 
-	logger.Info("🛑 Shutting down ...")
+	logger.Info("🛑 Shutting down app")
 	cancel()  // cancel context -  all services receive signal
 	wg.Wait() // waiting for all servers to complete
 }

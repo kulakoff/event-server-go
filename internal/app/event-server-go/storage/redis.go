@@ -32,10 +32,7 @@ func NewRedisStorage(logger *slog.Logger, redisConfig *config.RedisConfig) (*Red
 		return nil, fmt.Errorf("unable to connect to Redis: %w", err)
 	}
 
-	logger.Info("Successfully connected to Redis",
-		"host", redisConfig.Host,
-		"port", redisConfig.Port,
-		"db", redisConfig.DB)
+	logger.Debug("Successfully connected to Redis")
 
 	return &RedisStorage{
 		logger: logger,

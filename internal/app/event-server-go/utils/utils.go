@@ -17,7 +17,7 @@ import (
 )
 
 const PUSH_SERVICE_URL = "https://isdn.lanta.me/isdn_api.php"
-const PUSH_SERVICE_TOKEN = "qqq"
+const PUSH_SERVICE_TOKEN = "7e381dfb9d293290d06f0b050b24a7b2"
 
 type FRSFaceData struct {
 	Screenshot string `json:"screenshot"`

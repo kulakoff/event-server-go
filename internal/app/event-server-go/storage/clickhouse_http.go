@@ -32,7 +32,7 @@ func NewClickhouseHttpClient(logger *slog.Logger, config *config.ClickhouseConfi
 		return nil, fmt.Errorf("failed to ping Clickhouse: %w", err)
 	}
 
-	logger.Info("Success connection to Clickhouse HTTP interface")
+	logger.Debug("Success connection to Clickhouse HTTP interface")
 
 	return chClient, nil
 }
@@ -95,6 +95,6 @@ func (c *ClickhouseHttpClient) Ping() error {
 		return fmt.Errorf("non-OK HTTP status: %s", resp.Status)
 	}
 
-	c.logger.Info("Ping to Clickhouse successful")
+	c.logger.Debug("Ping to Clickhouse successful")
 	return nil
 }

@@ -18,22 +18,19 @@ type MongoHandler struct {
 	db     *mongo.Database
 }
 
-func NewMongoDb(logger *slog.Logger, mongoDbConfig *config.MongoDbConfig) (*MongoHandler, error) {
+func NewMongoDb(ctx context.Context, logger *slog.Logger, mongoDbConfig *config.MongoDbConfig) (*MongoHandler, error) {
 	clientOptions := options.Client().ApplyURI(mongoDbConfig.URI)
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
-	// check connection
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	if err := client.Ping(ctx, nil); err != nil {
 		return nil, fmt.Errorf("failed to ping MongoDB: %w", err)
 	}
 
-	logger.Info("Success connection to MongoDB")
+	logger.Debug("Success connection to MongoDB")
+
 	return &MongoHandler{
 		logger: logger,
 		client: client,
@@ -63,4 +60,17 @@ func (m *MongoHandler) SaveFile(filename string, metadata map[string]interface{}
 	fileIdHex := fileId.Hex()
 
 	return fileIdHex, nil
+}
+
+func (m *MongoHandler) Close() {
+	if m.client != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := m.client.Disconnect(ctx); err != nil {
+			m.logger.Error("Error closing MongoDB connection", "error", err)
+		} else {
+			m.logger.Info("🛑 Successfully closed connection to MongoDB")
+		}
+	}
 }

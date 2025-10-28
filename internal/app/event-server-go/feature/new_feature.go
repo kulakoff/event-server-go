@@ -268,7 +268,8 @@ func (s *StreamProcessor) processOpenByAPP(ctx context.Context, event DoorOpenEv
 	s.logger.Debug("processOpenByAPP")
 
 	var faceData map[string]interface{} // face data stub
-	imageGUIDv4 := ""
+	var imageGUIDv4 string
+	eventGUIDv4 := uuid.New().String()
 	preview := PREVIEW_IPCAM
 
 	// get entrance
@@ -336,6 +337,7 @@ func (s *StreamProcessor) processOpenByAPP(ctx context.Context, event DoorOpenEv
 			s.logger.Debug("MongoDB SaveFile", "err", err)
 		}
 
+		s.logger.Debug("Store image to mongo", "fileId", fileId)
 		// generate image_uuid
 		imageGUIDv4 = utils.ToGUIDv4(fileId)
 	}
@@ -347,7 +349,7 @@ func (s *StreamProcessor) processOpenByAPP(ctx context.Context, event DoorOpenEv
 	}
 
 	for _, flatID := range flatList {
-		eventGUIDv4 := uuid.New().String()
+
 		plogData := map[string]interface{}{
 			"date":       event.Date,
 			"event_uuid": eventGUIDv4,

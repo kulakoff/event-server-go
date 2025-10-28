@@ -39,7 +39,7 @@ func NewPSQLStorage(logger *slog.Logger, postgresConfig *config.PostgresConfig) 
 		return nil, fmt.Errorf("unable to ping database: %w", err)
 	}
 
-	logger.Info("Successfully connected to PostgreSQL")
+	logger.Debug("Successfully connected to PostgreSQL")
 
 	return &PSQLStorage{
 		logger: logger,
@@ -51,7 +51,7 @@ func NewPSQLStorage(logger *slog.Logger, postgresConfig *config.PostgresConfig) 
 func (s *PSQLStorage) Close() {
 	if s.DB != nil {
 		s.DB.Close()
-		s.logger.Info("Success closed connection to PostgreSQL")
+		s.logger.Info("🛑 Success closed connection to PostgreSQL")
 	}
 }
 
