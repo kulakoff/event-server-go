@@ -14,7 +14,7 @@ type RedisStorage struct {
 	Client *redis.Client
 }
 
-func NewRedisStorage(logger *slog.Logger, redisConfig *config.RedisConfig) (*RedisStorage, error) {
+func NewRedisStorage(ctx context.Context, logger *slog.Logger, redisConfig *config.RedisConfig) (*RedisStorage, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:         fmt.Sprintf("%s:%s", redisConfig.Host, redisConfig.Port),
 		Password:     redisConfig.Password,
@@ -25,10 +25,11 @@ func NewRedisStorage(logger *slog.Logger, redisConfig *config.RedisConfig) (*Red
 		PoolSize:     redisConfig.PoolSize,
 		MinIdleConns: redisConfig.MinIdleConns,
 	})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
-	if err := client.Ping(ctx).Err(); err != nil {
+	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer pingCancel()
+
+	if err := client.Ping(pingCtx).Err(); err != nil {
 		return nil, fmt.Errorf("unable to connect to Redis: %w", err)
 	}
 
@@ -46,7 +47,7 @@ func (s *RedisStorage) Close() {
 		if err := s.Client.Close(); err != nil {
 			s.logger.Error("Error closing Redis connection", "error", err)
 		} else {
-			s.logger.Info("Successfully closed connection to Redis")
+			s.logger.Info("🛑 Successfully closed connection to Redis")
 		}
 	}
 }

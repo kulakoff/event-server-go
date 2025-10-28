@@ -109,12 +109,29 @@ func (s *StreamProcessor) Start(ctx context.Context) error {
 		go s.worker(ctx, fmt.Sprintf("worker_%d", i))
 	}
 
+	//s.wg.Add(1)
+	//go s.pendingWorker(ctx)
+
 	s.logger.Info("Stream processor started",
 		"workers", s.config.WorkersCount,
 		"stream", s.config.StreamName,
 		"group", s.config.GroupName)
 
+	// Ждем завершения контекста
+	<-ctx.Done()
+
+	// Graceful shutdown stream processor
+	s.Stop()
+
 	return nil
+}
+
+func (s *StreamProcessor) Stop() {
+	s.logger.Info("Stopping stream processor...")
+
+	s.wg.Wait()
+
+	s.logger.Info("Stream processor stopped")
 }
 
 // initConsumerGroup make consumer group

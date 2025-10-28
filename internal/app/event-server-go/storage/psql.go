@@ -14,7 +14,7 @@ type PSQLStorage struct {
 	DB     *pgxpool.Pool
 }
 
-func NewPSQLStorage(logger *slog.Logger, postgresConfig *config.PostgresConfig) (*PSQLStorage, error) {
+func NewPSQLStorage(ctx context.Context, logger *slog.Logger, postgresConfig *config.PostgresConfig) (*PSQLStorage, error) {
 	// Format connection str
 	connStr := formatPostgresURL(postgresConfig)
 
@@ -28,13 +28,13 @@ func NewPSQLStorage(logger *slog.Logger, postgresConfig *config.PostgresConfig) 
 	psqlConf.ConnConfig.ConnectTimeout = 5 * time.Second
 
 	// Connect to db
-	db, err := pgxpool.NewWithConfig(context.Background(), psqlConf)
+	db, err := pgxpool.NewWithConfig(ctx, psqlConf)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
 
 	// Check connection
-	if err := db.Ping(context.Background()); err != nil {
+	if err := db.Ping(ctx); err != nil {
 		logger.Error("Unable to ping database", "error", err)
 		return nil, fmt.Errorf("unable to ping database: %w", err)
 	}

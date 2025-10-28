@@ -57,7 +57,7 @@ func startServer() {
 	defer mongo.Close()
 
 	// init postgres
-	psqlStorage, err := storage2.NewPSQLStorage(logger, cfg.Postgres)
+	psqlStorage, err := storage2.NewPSQLStorage(ctx, logger, cfg.Postgres)
 	if err != nil {
 		logger.Error("Error init PSQLStorage", "error", err)
 		os.Exit(1)
@@ -74,15 +74,11 @@ func startServer() {
 	}
 
 	// init redis
-	redis, err := storage2.NewRedisStorage(logger, cfg.Redis)
+	redis, err := storage2.NewRedisStorage(ctx, logger, cfg.Redis)
 	if err != nil {
 		logger.Error("Error init Redis", "error", err)
 	}
-	err = redis.Ping(ctx)
-	if err != nil {
-		logger.Error("Error init Redis", "error", err)
-		return
-	}
+	defer redis.Close()
 
 	// ----- Beward syslog_custom server
 	bewardHandler := handlers2.NewBewardHandler(logger, spamFilers.Beward, ch, mongo, repo, cfg.RbtApi, cfg.FrsApi, redis.Client)
@@ -120,8 +116,29 @@ func startServer() {
 	<-signalCh
 
 	logger.Info("🛑 Shutting down app")
-	cancel()  // cancel context -  all services receive signal
-	wg.Wait() // waiting for all servers to complete
+
+	// 1
+	cancel() // cancel context -  all services receive signal
+
+	// 2 ждем когда все сервисы остановятся
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	shutdownDone := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(shutdownDone)
+	}()
+
+	// Ждем либо завершения, либо таймаута
+	select {
+	case <-shutdownDone:
+		logger.Info("✅ All services stopped gracefully")
+	case <-shutdownCtx.Done():
+		logger.Warn("⚠️  Shutdown timeout - forcing application exit")
+	}
+
+	//wg.Wait() // waiting for all servers to complete
 }
 
 // wrapper for usage wg sync
@@ -129,6 +146,9 @@ func startServerWithWG(server *syslog_custom.SyslogServer, ctx context.Context, 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		server.Start(ctx)
+		err := server.Start(ctx)
+		if err != nil {
+			return
+		}
 	}()
 }
